@@ -3,11 +3,13 @@ package com.planify.eventmanager.service;
 import com.planify.eventmanager.event.KafkaProducer;
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.repository.EventRepository;
+import com.planify.eventmanager.repository.GuestListRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -16,8 +18,10 @@ import java.util.List;
 public class EventService {
     
     private final EventRepository eventRepository;
+    private final GuestListRepository guestListRepository;
     private final KafkaProducer kafkaProducer;
     
+    // CRUD Operations    
     public List<Event> getAllEvents() {
         return eventRepository.findAll();
     }
@@ -25,10 +29,6 @@ public class EventService {
     public Event getEventById(Long id) {
         return eventRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Event not found with id: " + id));
-    }
-    
-    public List<Event> getEventsByOrganizer(Long organizerId) {
-        return eventRepository.findByOrganizerId(organizerId);
     }
     
     @Transactional
@@ -51,8 +51,10 @@ public class EventService {
         event.setDescription(eventDetails.getDescription());
         event.setEventDate(eventDetails.getEventDate());
         event.setEndDate(eventDetails.getEndDate());
-        event.setLocation(eventDetails.getLocation());
+        event.setLocationId(eventDetails.getLocationId());
+        event.setLocationName(eventDetails.getLocationName());
         event.setMaxAttendees(eventDetails.getMaxAttendees());
+        event.setEventType(eventDetails.getEventType());
         event.setStatus(eventDetails.getStatus());
         
         Event updatedEvent = eventRepository.save(event);
@@ -75,5 +77,92 @@ public class EventService {
             String.format("Event deleted: ID %d", id));
         
         log.info("Deleted event: {}", id);
+    }
+    
+    // Query Operations    
+    public List<Event> getEventsByOrganizer(Long organizerId) {
+        return eventRepository.findByOrganizerId(organizerId);
+    }
+    
+    public List<Event> getEventsByStatus(Event.EventStatus status) {
+        return eventRepository.findByStatus(status);
+    }
+    
+    public List<Event> getPublicEvents() {
+        return eventRepository.findByEventTypeOrderByEventDateAsc(Event.EventType.PUBLIC);
+    }
+    
+    public List<Event> getUpcomingEvents() {
+        return eventRepository.findUpcomingEvents(LocalDateTime.now());
+    }
+    
+    public List<Event> getPastEvents() {
+        return eventRepository.findPastEvents(LocalDateTime.now());
+    }
+    
+    public List<Event> getEventsByDateRange(LocalDateTime start, LocalDateTime end) {
+        return eventRepository.findByEventDateBetween(start, end);
+    }
+    
+    public List<Event> getEventsByLocation(Long locationId) {
+        return eventRepository.findByLocationId(locationId);
+    }
+    
+    // Status Management    
+    @Transactional
+    public Event publishEvent(Long id) {
+        Event event = getEventById(id);
+        event.setStatus(Event.EventStatus.PUBLISHED);
+        Event published = eventRepository.save(event);
+        
+        kafkaProducer.sendMessage("event-published", 
+            String.format("Event published: %s (ID: %d)", published.getTitle(), published.getId()));
+        
+        log.info("Published event: {}", id);
+        return published;
+    }
+    
+    @Transactional
+    public Event cancelEvent(Long id) {
+        Event event = getEventById(id);
+        event.setStatus(Event.EventStatus.CANCELLED);
+        Event cancelled = eventRepository.save(event);
+        
+        kafkaProducer.sendMessage("event-cancelled", 
+            String.format("Event cancelled: %s (ID: %d)", cancelled.getTitle(), cancelled.getId()));
+        
+        log.info("Cancelled event: {}", id);
+        return cancelled;
+    }
+    
+    @Transactional
+    public Event completeEvent(Long id) {
+        Event event = getEventById(id);
+        event.setStatus(Event.EventStatus.COMPLETED);
+        Event completed = eventRepository.save(event);
+        
+        log.info("Completed event: {}", id);
+        return completed;
+    }
+    
+    // Attendee Count Management    
+    @Transactional
+    public Event updateAttendeeCount(Long id) {
+        Event event = getEventById(id);
+        Long acceptedCount = guestListRepository.countByEventIdAndRsvpStatus(id, 
+            com.planify.eventmanager.model.GuestList.RsvpStatus.ACCEPTED);
+        event.setCurrentAttendees(acceptedCount.intValue());
+        return eventRepository.save(event);
+    }
+    
+    public boolean isEventFull(Long id) {
+        Event event = getEventById(id);
+        if (event.getMaxAttendees() == null) return false;
+        return event.getCurrentAttendees() >= event.getMaxAttendees();
+    }
+    
+    // Statistics    
+    public Long countEventsByOrganizer(Long organizerId) {
+        return eventRepository.countByOrganizerId(organizerId);
     }
 }

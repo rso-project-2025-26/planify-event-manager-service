@@ -23,7 +23,7 @@ public class Event {
     @Column(nullable = false)
     private String title;
     
-    @Column(length = 1000)
+    @Column(length = 2000)
     private String description;
     
     @Column(name = "event_date", nullable = false)
@@ -32,7 +32,12 @@ public class Event {
     @Column(name = "end_date")
     private LocalDateTime endDate;
     
-    private String location;
+    // Location reference
+    @Column(name = "location_id")
+    private Long locationId;
+    
+    @Column(name = "location_name", length = 500)
+    private String locationName;
     
     @Column(name = "organizer_id", nullable = false)
     private Long organizerId;
@@ -40,8 +45,18 @@ public class Event {
     @Column(name = "max_attendees")
     private Integer maxAttendees;
     
+    @Column(name = "current_attendees")
+    @Builder.Default
+    private Integer currentAttendees = 0;
+    
     @Enumerated(EnumType.STRING)
-    private EventStatus status;
+    @Column(name = "event_type", nullable = false)
+    @Builder.Default
+    private EventType eventType = EventType.PRIVATE;
+    
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private EventStatus status = EventStatus.DRAFT;
     
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -53,9 +68,9 @@ public class Event {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (status == null) {
-            status = EventStatus.DRAFT;
-        }
+        if (status == null) status = EventStatus.DRAFT;
+        if (eventType == null) eventType = EventType.PRIVATE;
+        if (currentAttendees == null) currentAttendees = 0;
     }
     
     @PreUpdate
@@ -64,9 +79,11 @@ public class Event {
     }
     
     public enum EventStatus {
-        DRAFT,
-        PUBLISHED,
-        CANCELLED,
-        COMPLETED
+        DRAFT, PUBLISHED, CANCELLED, COMPLETED
+    }
+    
+    public enum EventType {
+        PRIVATE,
+        PUBLIC
     }
 }
