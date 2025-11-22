@@ -2,6 +2,7 @@ package com.planify.eventmanager.repository;
 
 import com.planify.eventmanager.model.Event;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -10,9 +11,35 @@ import java.util.List;
 @Repository
 public interface EventRepository extends JpaRepository<Event, Long> {
     
+    // Find by organizer
     List<Event> findByOrganizerId(Long organizerId);
     
+    // Find by status
+    List<Event> findByStatus(Event.EventStatus status);
+    
+    // Find by event type
+    List<Event> findByEventType(Event.EventType eventType);
+    
+    // Find public events only
+    List<Event> findByEventTypeOrderByEventDateAsc(Event.EventType eventType);
+    
+    // Find events by date range
     List<Event> findByEventDateBetween(LocalDateTime start, LocalDateTime end);
     
-    List<Event> findByStatus(Event.EventStatus status);
+    // Find upcoming events (published and not completed)
+    @Query("SELECT e FROM Event e WHERE e.eventDate > :now AND e.status = 'PUBLISHED' ORDER BY e.eventDate ASC")
+    List<Event> findUpcomingEvents(LocalDateTime now);
+    
+    // Find past events
+    @Query("SELECT e FROM Event e WHERE e.eventDate < :now ORDER BY e.eventDate DESC")
+    List<Event> findPastEvents(LocalDateTime now);
+    
+    // Find events by location
+    List<Event> findByLocationId(Long locationId);
+    
+    // Count events by organizer
+    Long countByOrganizerId(Long organizerId);
+    
+    // Find events by organizer and status
+    List<Event> findByOrganizerIdAndStatus(Long organizerId, Event.EventStatus status);
 }
