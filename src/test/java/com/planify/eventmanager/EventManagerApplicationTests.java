@@ -1,10 +1,10 @@
-package com.planify.service_template;
+package com.planify.eventmanager;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ServiceTemplateApplicationTests {
+class EventManagerApplicationTests {
 
 	@Test
 	void contextLoads() {
