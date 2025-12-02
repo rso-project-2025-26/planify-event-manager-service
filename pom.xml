@@ -126,6 +126,20 @@
 					</excludes>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.flywaydb</groupId>
+				<artifactId>flyway-maven-plugin</artifactId>
+				<version>11.7.2</version>
+				<configuration>
+					<cleanDisabled>false</cleanDisabled>
+					<url>jdbc:postgresql://localhost:5432/planify</url>
+					<user>planify</user>
+					<password>planify</password>
+					<schemas>
+						<schema>event-manager</schema>
+					</schemas>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 
