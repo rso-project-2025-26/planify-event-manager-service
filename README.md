@@ -112,11 +112,3 @@ docker run -p 8081:8081 \
   -e SPRING_KAFKA_BOOTSTRAP_SERVERS=host.docker.internal:9092 \
   planify/event-manager:latest
 ```
-
-## 📈 Metrics
-
-Prometheus metrics available at `/actuator/prometheus`:
-- JVM memory and CPU
-- HTTP request rates and latencies
-- Database connection pool stats
-- Kafka producer/consumer metrics
