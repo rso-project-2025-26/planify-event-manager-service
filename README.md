@@ -61,9 +61,6 @@ curl http://localhost:8081/actuator/health
 ./mvnw test
 ```
 
-### Test with Postman
-Import the Postman collection from `/postman` directory.
-
 ### Test with Swagger
 Open http://localhost:8081/swagger-ui.html
 
