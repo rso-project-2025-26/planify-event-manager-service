@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
+@CrossOrigin(origins = "http://localhost:4200")
 @RequestMapping("/api/events")
 @RequiredArgsConstructor
 @Tag(name = "Events", description = "Event management operations")
