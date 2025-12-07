@@ -22,7 +22,7 @@ public class GuestListService {
     private final EventRepository eventRepository;
     private final KafkaProducer kafkaProducer;
     
-    // CRUD Operations    
+    // CRUD Operations
     public List<GuestList> getAllGuestsForEvent(Long eventId) {
         return guestListRepository.findByEventId(eventId);
     }
@@ -77,7 +77,7 @@ public class GuestListService {
         log.info("Removed user {} from event {}", userId, eventId);
     }
     
-    // RSVP Management    
+    // RSVP Management
     @Transactional
     public GuestList updateRsvp(Long eventId, Long userId, GuestList.RsvpStatus status) {
         GuestList guest = getGuestEntry(eventId, userId);
@@ -108,7 +108,7 @@ public class GuestListService {
         return updateRsvp(eventId, userId, GuestList.RsvpStatus.DECLINED);
     }
     
-    // Check-in Management    
+    // Check-in Management
     @Transactional
     public GuestList checkInGuest(Long eventId, Long userId) {
         GuestList guest = getGuestEntry(eventId, userId);
@@ -138,26 +138,13 @@ public class GuestListService {
         return guestListRepository.countByEventIdAndCheckedIn_True(eventId);
     }
     
-    // Query Operations     
+    // Query Operations
     public List<GuestList> getGuestsByStatus(Long eventId, GuestList.RsvpStatus status) {
         return guestListRepository.findByEventIdAndRsvpStatus(eventId, status);
     }
     
     public List<GuestList> getGuestsByRole(Long eventId, GuestList.GuestRole role) {
         return guestListRepository.findByEventIdAndRole(eventId, role);
-    }
-    
-    public boolean isUserInvited(Long eventId, Long userId) {
-        return guestListRepository.existsByEventIdAndUserId(eventId, userId);
-    }
-    
-    // Statistics    
-    public Long countTotalGuests(Long eventId) {
-        return guestListRepository.countByEventId(eventId);
-    }
-    
-    public Long countGuestsByStatus(Long eventId, GuestList.RsvpStatus status) {
-        return guestListRepository.countByEventIdAndRsvpStatus(eventId, status);
     }
     
     // Helper Methods

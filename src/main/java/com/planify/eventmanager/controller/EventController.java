@@ -86,21 +86,7 @@ public class EventController {
     public ResponseEntity<List<Event>> getPastEvents() {
         return ResponseEntity.ok(eventService.getPastEvents());
     }
-    
-    @GetMapping("/date-range")
-    @Operation(summary = "Get events by date range")
-    public ResponseEntity<List<Event>> getEventsByDateRange(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return ResponseEntity.ok(eventService.getEventsByDateRange(start, end));
-    }
-    
-    @GetMapping("/location/{locationId}")
-    @Operation(summary = "Get events by location")
-    public ResponseEntity<List<Event>> getEventsByLocation(@PathVariable Long locationId) {
-        return ResponseEntity.ok(eventService.getEventsByLocation(locationId));
-    }
-    
+
     // Status Management    
     @PutMapping("/{id}/publish")
     @Operation(summary = "Publish event")
@@ -118,18 +104,5 @@ public class EventController {
     @Operation(summary = "Mark event as completed")
     public ResponseEntity<Event> completeEvent(@PathVariable Long id) {
         return ResponseEntity.ok(eventService.completeEvent(id));
-    }
-    
-    // Statistics    
-    @GetMapping("/{id}/is-full")
-    @Operation(summary = "Check if event is full")
-    public ResponseEntity<Boolean> isEventFull(@PathVariable Long id) {
-        return ResponseEntity.ok(eventService.isEventFull(id));
-    }
-    
-    @GetMapping("/organizer/{organizerId}/count")
-    @Operation(summary = "Count events by organizer")
-    public ResponseEntity<Long> countEventsByOrganizer(@PathVariable Long organizerId) {
-        return ResponseEntity.ok(eventService.countEventsByOrganizer(organizerId));
     }
 }

@@ -100,14 +100,6 @@ public class EventService {
         return eventRepository.findPastEvents(LocalDateTime.now());
     }
     
-    public List<Event> getEventsByDateRange(LocalDateTime start, LocalDateTime end) {
-        return eventRepository.findByEventDateBetween(start, end);
-    }
-    
-    public List<Event> getEventsByLocation(Long locationId) {
-        return eventRepository.findByLocationId(locationId);
-    }
-    
     // Status Management    
     @Transactional
     public Event publishEvent(Long id) {
@@ -153,16 +145,5 @@ public class EventService {
             com.planify.eventmanager.model.GuestList.RsvpStatus.ACCEPTED);
         event.setCurrentAttendees(acceptedCount.intValue());
         return eventRepository.save(event);
-    }
-    
-    public boolean isEventFull(Long id) {
-        Event event = getEventById(id);
-        if (event.getMaxAttendees() == null) return false;
-        return event.getCurrentAttendees() >= event.getMaxAttendees();
-    }
-    
-    // Statistics    
-    public Long countEventsByOrganizer(Long organizerId) {
-        return eventRepository.countByOrganizerId(organizerId);
     }
 }

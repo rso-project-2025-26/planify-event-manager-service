@@ -60,7 +60,7 @@ public class GuestListController {
         return ResponseEntity.noContent().build();
     }
     
-    // RSVP Management    
+    // RSVP Management
     @PutMapping("/event/{eventId}/user/{userId}/rsvp")
     @Operation(summary = "Update RSVP status")
     public ResponseEntity<GuestList> updateRsvp(
@@ -86,7 +86,7 @@ public class GuestListController {
         return ResponseEntity.ok(guestListService.declineInvitation(eventId, userId));
     }
     
-    // Check-in Management    
+    // Check-in Management
     @PutMapping("/event/{eventId}/user/{userId}/check-in")
     @Operation(summary = "Check in guest")
     public ResponseEntity<GuestList> checkInGuest(
@@ -107,7 +107,7 @@ public class GuestListController {
         return ResponseEntity.ok(guestListService.countCheckedInGuests(eventId));
     }
     
-    // Query Operations    
+    // Query Operations
     @GetMapping("/event/{eventId}/status/{status}")
     @Operation(summary = "Get guests by RSVP status")
     public ResponseEntity<List<GuestList>> getGuestsByStatus(
@@ -122,28 +122,5 @@ public class GuestListController {
             @PathVariable Long eventId,
             @PathVariable GuestList.GuestRole role) {
         return ResponseEntity.ok(guestListService.getGuestsByRole(eventId, role));
-    }
-    
-    @GetMapping("/event/{eventId}/user/{userId}/invited")
-    @Operation(summary = "Check if user is invited")
-    public ResponseEntity<Boolean> isUserInvited(
-            @PathVariable Long eventId,
-            @PathVariable Long userId) {
-        return ResponseEntity.ok(guestListService.isUserInvited(eventId, userId));
-    }
-    
-    // Statistics
-    @GetMapping("/event/{eventId}/count")
-    @Operation(summary = "Count total guests")
-    public ResponseEntity<Long> countTotalGuests(@PathVariable Long eventId) {
-        return ResponseEntity.ok(guestListService.countTotalGuests(eventId));
-    }
-    
-    @GetMapping("/event/{eventId}/status/{status}/count")
-    @Operation(summary = "Count guests by status")
-    public ResponseEntity<Long> countGuestsByStatus(
-            @PathVariable Long eventId,
-            @PathVariable GuestList.RsvpStatus status) {
-        return ResponseEntity.ok(guestListService.countGuestsByStatus(eventId, status));
     }
 }
