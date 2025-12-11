@@ -10,7 +10,8 @@ CREATE TABLE events (
     location_id BIGINT,
     location_name VARCHAR(500),
     
-    organizer_id BIGINT NOT NULL,
+    organizer_id UUID NOT NULL,
+    organization_id UUID NOT NULL,
     max_attendees INTEGER,
     current_attendees INTEGER DEFAULT 0,
     
@@ -23,7 +24,7 @@ CREATE TABLE events (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_events_organizer ON events(organizer_id);
+CREATE INDEX idx_events_organization ON events(organization_id);
 CREATE INDEX idx_events_date ON events(event_date);
 CREATE INDEX idx_events_status ON events(status);
 CREATE INDEX idx_events_type ON events(event_type);
@@ -38,12 +39,12 @@ COMMENT ON COLUMN events.event_type IS 'PUBLIC events visible to all, PRIVATE on
 CREATE TABLE guest_list (
     id BIGSERIAL PRIMARY KEY,
     event_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
+    user_id UUID NOT NULL,
     
     -- Organizer's data
     role VARCHAR(50) DEFAULT 'ATTENDEE',
     notes TEXT,
-    invited_by_user_id BIGINT,
+    invited_by_user_id UUID,
     invited_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
     -- Foreign key constraint

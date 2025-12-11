@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -28,19 +29,19 @@ public class GuestListService {
     }
     
     // Get all events user is invited to
-    public List<GuestList> getAllEventsForUser(Long userId) {
+    public List<GuestList> getAllEventsForUser(UUID userId) {
         return guestListRepository.findByUserId(userId);
     }
     
     // Get specific guest entry
-    public GuestList getGuestEntry(Long eventId, Long userId) {
+    public GuestList getGuestEntry(Long eventId, UUID userId) {
         return guestListRepository.findByEventIdAndUserId(eventId, userId)
             .orElseThrow(() -> new RuntimeException("Guest not found for event: " + eventId + " and user: " + userId));
     }
     
     // Invite guest to event (organizer action)
     @Transactional
-    public GuestList inviteGuest(Long eventId, Long userId, Long invitedByUserId, GuestList.GuestRole role, String notes) {
+    public GuestList inviteGuest(Long eventId, UUID userId, UUID invitedByUserId, GuestList.GuestRole role, String notes) {
         // Check if event exists
         Event event = eventRepository.findById(eventId)
             .orElseThrow(() -> new RuntimeException("Event not found: " + eventId));
@@ -62,7 +63,7 @@ public class GuestListService {
         
         // Publish Kafka event for guest-service to create invitation
         kafkaProducer.sendMessage("guest-invited", 
-            String.format("{\"eventId\": %d, \"userId\": %d, \"invitedBy\": %d, \"invitedAt\": \"%s\"}", 
+            String.format("{\"eventId\": %d, \"userId\": %s, \"invitedBy\": %d, \"invitedAt\": \"%s\"}", 
                 eventId, userId, invitedByUserId, LocalDateTime.now()));
         
         log.info("Invited user {} to event {} by user {}", userId, eventId, invitedByUserId);
@@ -71,13 +72,13 @@ public class GuestListService {
     
     // Remove guest from event (organizer action)
     @Transactional
-    public void removeGuest(Long eventId, Long userId, Long removedByUserId) {
+    public void removeGuest(Long eventId, UUID userId, UUID removedByUserId) {
         GuestList guest = getGuestEntry(eventId, userId);
         guestListRepository.delete(guest);
         
         // Publish Kafka event for guest-service to remove invitation
         kafkaProducer.sendMessage("guest-removed", 
-            String.format("{\"eventId\": %d, \"userId\": %d, \"removedBy\": %d, \"removedAt\": \"%s\"}", 
+            String.format("{\"eventId\": %d, \"userId\": %s, \"removedBy\": %d, \"removedAt\": \"%s\"}", 
                 eventId, userId, removedByUserId, LocalDateTime.now()));
         
         log.info("Removed user {} from event {} by user {}", userId, eventId, removedByUserId);
@@ -85,7 +86,7 @@ public class GuestListService {
     
     // Update guest role (organizer action)
     @Transactional
-    public GuestList updateGuestRole(Long eventId, Long userId, GuestList.GuestRole newRole) {
+    public GuestList updateGuestRole(Long eventId, UUID userId, GuestList.GuestRole newRole) {
         GuestList guest = getGuestEntry(eventId, userId);
         guest.setRole(newRole);
         GuestList updated = guestListRepository.save(guest);
@@ -96,7 +97,7 @@ public class GuestListService {
     
     // Update guest notes (organizer action)
     @Transactional
-    public GuestList updateGuestNotes(Long eventId, Long userId, String notes) {
+    public GuestList updateGuestNotes(Long eventId, UUID userId, String notes) {
         GuestList guest = getGuestEntry(eventId, userId);
         guest.setNotes(notes);
         GuestList updated = guestListRepository.save(guest);
@@ -110,12 +111,7 @@ public class GuestListService {
         return guestListRepository.findByEventIdAndRole(eventId, role);
     }
     
-    public boolean isUserInvited(Long eventId, Long userId) {
+    public boolean isUserInvited(Long eventId, UUID userId) {
         return guestListRepository.existsByEventIdAndUserId(eventId, userId);
-    }
-    
-    // Statistics
-    public Long countTotalGuests(Long eventId) {
-        return guestListRepository.countByEventId(eventId);
     }
 }

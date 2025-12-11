@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "guest_list")
@@ -24,7 +25,7 @@ public class GuestList {
     private Long eventId;
     
     @Column(name = "user_id", nullable = false)
-    private Long userId;
+    private UUID userId;
     
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
@@ -35,7 +36,7 @@ public class GuestList {
     private LocalDateTime invitedAt;
     
     @Column(name = "invited_by_user_id")
-    private Long invitedByUserId;
+    private UUID invitedByUserId;
     
     @Column(length = 1000)
     private String notes;

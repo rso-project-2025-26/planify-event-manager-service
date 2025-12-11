@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/events/{eventId}/guests")
@@ -44,12 +45,12 @@ public class GuestListController {
     })
     public ResponseEntity<GuestList> getGuestEntry(
             @PathVariable Long eventId,
-            @PathVariable Long userId
+            @PathVariable UUID userId
     ) {
         return ResponseEntity.ok(guestListService.getGuestEntry(eventId, userId));
     }
 
-    @PostMapping
+    @PostMapping("/invite")
     @Operation(
             summary = "Invite guest to event",
             description = "Organizer invites a user to the event. Publishes 'guest-invited' Kafka event."
@@ -60,8 +61,8 @@ public class GuestListController {
     })
     public ResponseEntity<GuestList> inviteGuest(
             @PathVariable Long eventId,
-            @RequestParam Long userId,
-            @RequestParam Long invitedByUserId,
+            @RequestParam UUID userId,
+            @RequestParam UUID invitedByUserId,
             @RequestParam(required = false) GuestList.GuestRole role,
             @RequestParam(required = false) String notes
     ) {
@@ -80,8 +81,8 @@ public class GuestListController {
     })
     public ResponseEntity<Void> removeGuest(
             @PathVariable Long eventId,
-            @PathVariable Long userId,
-            @RequestParam Long removedByUserId
+            @PathVariable UUID userId,
+            @RequestParam UUID removedByUserId
     ) {
         guestListService.removeGuest(eventId, userId, removedByUserId);
         return ResponseEntity.noContent().build();
@@ -98,7 +99,7 @@ public class GuestListController {
     })
     public ResponseEntity<GuestList> updateGuestRole(
             @PathVariable Long eventId,
-            @PathVariable Long userId,
+            @PathVariable UUID userId,
             @RequestParam GuestList.GuestRole role
     ) {
         return ResponseEntity.ok(guestListService.updateGuestRole(eventId, userId, role));
@@ -115,7 +116,7 @@ public class GuestListController {
     })
     public ResponseEntity<GuestList> updateGuestNotes(
             @PathVariable Long eventId,
-            @PathVariable Long userId,
+            @PathVariable UUID userId,
             @RequestBody String notes
     ) {
         return ResponseEntity.ok(guestListService.updateGuestNotes(eventId, userId, notes));
@@ -134,17 +135,5 @@ public class GuestListController {
             @PathVariable GuestList.GuestRole role
     ) {
         return ResponseEntity.ok(guestListService.getGuestsByRole(eventId, role));
-    }
-
-    @GetMapping("/count")
-    @Operation(
-            summary = "Count total guests",
-            description = "Returns total number of invited guests"
-    )
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Count retrieved successfully")
-    })
-    public ResponseEntity<Long> countTotalGuests(@PathVariable Long eventId) {
-        return ResponseEntity.ok(guestListService.countTotalGuests(eventId));
     }
 }
