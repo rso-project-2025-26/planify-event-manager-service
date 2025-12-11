@@ -3,7 +3,6 @@ package com.planify.eventmanager.service;
 import com.planify.eventmanager.event.KafkaProducer;
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.repository.EventRepository;
-import com.planify.eventmanager.repository.GuestListRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,7 +17,6 @@ import java.util.List;
 public class EventService {
     
     private final EventRepository eventRepository;
-    private final GuestListRepository guestListRepository;
     private final KafkaProducer kafkaProducer;
     
     // CRUD Operations    
@@ -74,7 +72,7 @@ public class EventService {
         
         // Publish delete event to Kafka
         kafkaProducer.sendMessage("event-deleted", 
-            String.format("Event deleted: ID %d", id));
+            String.format("{\"eventId\": %d, \"deletedAt\": \"%s\"}", id, LocalDateTime.now()));
         
         log.info("Deleted event: {}", id);
     }
@@ -100,6 +98,14 @@ public class EventService {
         return eventRepository.findPastEvents(LocalDateTime.now());
     }
     
+    public List<Event> getEventsByDateRange(LocalDateTime start, LocalDateTime end) {
+        return eventRepository.findByEventDateBetween(start, end);
+    }
+    
+    public List<Event> getEventsByLocation(Long locationId) {
+        return eventRepository.findByLocationId(locationId);
+    }
+    
     // Status Management    
     @Transactional
     public Event publishEvent(Long id) {
@@ -120,8 +126,9 @@ public class EventService {
         event.setStatus(Event.EventStatus.CANCELLED);
         Event cancelled = eventRepository.save(event);
         
+        // Publish cancel event to Kafka
         kafkaProducer.sendMessage("event-cancelled", 
-            String.format("Event cancelled: %s (ID: %d)", cancelled.getTitle(), cancelled.getId()));
+            String.format("{\"eventId\": %d, \"cancelledAt\": \"%s\"}", id, LocalDateTime.now()));
         
         log.info("Cancelled event: {}", id);
         return cancelled;
@@ -135,15 +142,5 @@ public class EventService {
         
         log.info("Completed event: {}", id);
         return completed;
-    }
-    
-    // Attendee Count Management    
-    @Transactional
-    public Event updateAttendeeCount(Long id) {
-        Event event = getEventById(id);
-        Long acceptedCount = guestListRepository.countByEventIdAndRsvpStatus(id, 
-            com.planify.eventmanager.model.GuestList.RsvpStatus.ACCEPTED);
-        event.setCurrentAttendees(acceptedCount.intValue());
-        return eventRepository.save(event);
     }
 }

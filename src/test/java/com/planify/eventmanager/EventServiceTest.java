@@ -3,7 +3,6 @@ package com.planify.eventmanager.service;
 import com.planify.eventmanager.event.KafkaProducer;
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.repository.EventRepository;
-import com.planify.eventmanager.repository.GuestListRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,7 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,9 +24,6 @@ class EventServiceTest {
 
     @Mock
     private EventRepository eventRepository;
-
-    @Mock
-    private GuestListRepository guestListRepository;
 
     @Mock
     private KafkaProducer kafkaProducer;
@@ -62,18 +58,13 @@ class EventServiceTest {
                 .build();
     }
 
-    // CRUD Operations Tests
-
     @Test
     void testGetAllEvents() {
-        // Arrange
         List<Event> events = Arrays.asList(testEvent);
         when(eventRepository.findAll()).thenReturn(events);
 
-        // Act
         List<Event> result = eventService.getAllEvents();
 
-        // Assert
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals(testEventId, result.get(0).getId());
@@ -82,13 +73,10 @@ class EventServiceTest {
 
     @Test
     void testGetEventById_Success() {
-        // Arrange
         when(eventRepository.findById(testEventId)).thenReturn(Optional.of(testEvent));
 
-        // Act
         Event result = eventService.getEventById(testEventId);
 
-        // Assert
         assertNotNull(result);
         assertEquals(testEventId, result.getId());
         assertEquals("Test Conference", result.getTitle());
@@ -97,19 +85,16 @@ class EventServiceTest {
 
     @Test
     void testGetEventById_NotFound() {
-        // Arrange
         when(eventRepository.findById(testEventId)).thenReturn(Optional.empty());
 
-        // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, 
-            () -> eventService.getEventById(testEventId));
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> eventService.getEventById(testEventId));
         assertTrue(exception.getMessage().contains("Event not found"));
         verify(eventRepository).findById(testEventId);
     }
 
     @Test
     void testCreateEvent() {
-        // Arrange
         Event newEvent = Event.builder()
                 .title("New Event")
                 .description("New event description")
@@ -119,10 +104,8 @@ class EventServiceTest {
 
         when(eventRepository.save(any(Event.class))).thenReturn(testEvent);
 
-        // Act
         Event result = eventService.createEvent(newEvent);
 
-        // Assert
         assertNotNull(result);
         assertEquals(testEventId, result.getId());
         verify(eventRepository).save(any(Event.class));
@@ -131,7 +114,6 @@ class EventServiceTest {
 
     @Test
     void testUpdateEvent() {
-        // Arrange
         Event updatedDetails = Event.builder()
                 .title("Updated Conference")
                 .description("Updated description")
@@ -147,10 +129,8 @@ class EventServiceTest {
         when(eventRepository.findById(testEventId)).thenReturn(Optional.of(testEvent));
         when(eventRepository.save(any(Event.class))).thenReturn(testEvent);
 
-        // Act
         Event result = eventService.updateEvent(testEventId, updatedDetails);
 
-        // Assert
         assertNotNull(result);
         verify(eventRepository).findById(testEventId);
         verify(eventRepository).save(any(Event.class));
@@ -159,31 +139,23 @@ class EventServiceTest {
 
     @Test
     void testDeleteEvent() {
-        // Arrange
         when(eventRepository.findById(testEventId)).thenReturn(Optional.of(testEvent));
         doNothing().when(eventRepository).delete(testEvent);
 
-        // Act
         eventService.deleteEvent(testEventId);
 
-        // Assert
         verify(eventRepository).findById(testEventId);
         verify(eventRepository).delete(testEvent);
-        verify(kafkaProducer).sendMessage(eq("event-deleted"), contains("Event deleted"));
+        verify(kafkaProducer).sendMessage(eq("event-deleted"), contains("eventId"));
     }
-
-    // Query Operations Tests
 
     @Test
     void testGetEventsByOrganizer() {
-        // Arrange
         List<Event> events = Arrays.asList(testEvent);
         when(eventRepository.findByOrganizerId(testOrganizerId)).thenReturn(events);
 
-        // Act
         List<Event> result = eventService.getEventsByOrganizer(testOrganizerId);
 
-        // Assert
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals(testOrganizerId, result.get(0).getOrganizerId());
@@ -192,14 +164,11 @@ class EventServiceTest {
 
     @Test
     void testGetEventsByStatus() {
-        // Arrange
         List<Event> events = Arrays.asList(testEvent);
         when(eventRepository.findByStatus(Event.EventStatus.DRAFT)).thenReturn(events);
 
-        // Act
         List<Event> result = eventService.getEventsByStatus(Event.EventStatus.DRAFT);
 
-        // Assert
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals(Event.EventStatus.DRAFT, result.get(0).getStatus());
@@ -208,15 +177,11 @@ class EventServiceTest {
 
     @Test
     void testGetPublicEvents() {
-        // Arrange
         List<Event> events = Arrays.asList(testEvent);
-        when(eventRepository.findByEventTypeOrderByEventDateAsc(Event.EventType.PUBLIC))
-                .thenReturn(events);
+        when(eventRepository.findByEventTypeOrderByEventDateAsc(Event.EventType.PUBLIC)).thenReturn(events);
 
-        // Act
         List<Event> result = eventService.getPublicEvents();
 
-        // Assert
         assertNotNull(result);
         assertEquals(1, result.size());
         assertEquals(Event.EventType.PUBLIC, result.get(0).getEventType());
@@ -225,14 +190,11 @@ class EventServiceTest {
 
     @Test
     void testGetUpcomingEvents() {
-        // Arrange
         List<Event> events = Arrays.asList(testEvent);
         when(eventRepository.findUpcomingEvents(any(LocalDateTime.class))).thenReturn(events);
 
-        // Act
         List<Event> result = eventService.getUpcomingEvents();
 
-        // Assert
         assertNotNull(result);
         assertEquals(1, result.size());
         verify(eventRepository).findUpcomingEvents(any(LocalDateTime.class));
@@ -240,7 +202,6 @@ class EventServiceTest {
 
     @Test
     void testGetPastEvents() {
-        // Arrange
         Event pastEvent = Event.builder()
                 .id(2L)
                 .title("Past Event")
@@ -250,27 +211,20 @@ class EventServiceTest {
         List<Event> events = Arrays.asList(pastEvent);
         when(eventRepository.findPastEvents(any(LocalDateTime.class))).thenReturn(events);
 
-        // Act
         List<Event> result = eventService.getPastEvents();
 
-        // Assert
         assertNotNull(result);
         assertEquals(1, result.size());
         verify(eventRepository).findPastEvents(any(LocalDateTime.class));
     }
 
-    // Status Management Tests
-
     @Test
     void testPublishEvent() {
-        // Arrange
         when(eventRepository.findById(testEventId)).thenReturn(Optional.of(testEvent));
         when(eventRepository.save(any(Event.class))).thenReturn(testEvent);
 
-        // Act
         Event result = eventService.publishEvent(testEventId);
 
-        // Assert
         assertNotNull(result);
         verify(eventRepository).findById(testEventId);
         verify(eventRepository).save(any(Event.class));
@@ -279,54 +233,52 @@ class EventServiceTest {
 
     @Test
     void testCancelEvent() {
-        // Arrange
         when(eventRepository.findById(testEventId)).thenReturn(Optional.of(testEvent));
         when(eventRepository.save(any(Event.class))).thenReturn(testEvent);
 
-        // Act
         Event result = eventService.cancelEvent(testEventId);
 
-        // Assert
         assertNotNull(result);
         verify(eventRepository).findById(testEventId);
         verify(eventRepository).save(any(Event.class));
-        verify(kafkaProducer).sendMessage(eq("event-cancelled"), contains("Event cancelled"));
+        verify(kafkaProducer).sendMessage(eq("event-cancelled"), contains("eventId"));
     }
 
     @Test
     void testCompleteEvent() {
-        // Arrange
         when(eventRepository.findById(testEventId)).thenReturn(Optional.of(testEvent));
         when(eventRepository.save(any(Event.class))).thenReturn(testEvent);
 
-        // Act
         Event result = eventService.completeEvent(testEventId);
 
-        // Assert
         assertNotNull(result);
         verify(eventRepository).findById(testEventId);
         verify(eventRepository).save(any(Event.class));
     }
 
-    // Attendee Count Management Tests
+    @Test
+    void testGetEventsByDateRange() {
+        LocalDateTime start = LocalDateTime.now().minusDays(1);
+        LocalDateTime end = LocalDateTime.now().plusDays(10);
+        List<Event> events = Arrays.asList(testEvent);
+        when(eventRepository.findByEventDateBetween(start, end)).thenReturn(events);
+
+        List<Event> result = eventService.getEventsByDateRange(start, end);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(eventRepository).findByEventDateBetween(start, end);
+    }
 
     @Test
-    void testUpdateAttendeeCount() {
-        // Arrange
-        Long acceptedCount = 25L;
-        when(eventRepository.findById(testEventId)).thenReturn(Optional.of(testEvent));
-        when(guestListRepository.countByEventIdAndRsvpStatus(
-                eq(testEventId), 
-                any())).thenReturn(acceptedCount);
-        when(eventRepository.save(any(Event.class))).thenReturn(testEvent);
+    void testGetEventsByLocation() {
+        List<Event> events = Arrays.asList(testEvent);
+        when(eventRepository.findByLocationId(1L)).thenReturn(events);
 
-        // Act
-        Event result = eventService.updateAttendeeCount(testEventId);
+        List<Event> result = eventService.getEventsByLocation(1L);
 
-        // Assert
         assertNotNull(result);
-        verify(eventRepository).findById(testEventId);
-        verify(guestListRepository).countByEventIdAndRsvpStatus(eq(testEventId), any());
-        verify(eventRepository).save(any(Event.class));
+        assertEquals(1, result.size());
+        verify(eventRepository).findByLocationId(1L);
     }
 }

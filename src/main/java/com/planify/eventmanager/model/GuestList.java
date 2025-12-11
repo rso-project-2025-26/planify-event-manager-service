@@ -27,11 +27,6 @@ public class GuestList {
     private Long userId;
     
     @Enumerated(EnumType.STRING)
-    @Column(name = "rsvp_status", nullable = false)
-    @Builder.Default
-    private RsvpStatus rsvpStatus = RsvpStatus.PENDING;
-    
-    @Enumerated(EnumType.STRING)
     @Column(name = "role")
     @Builder.Default
     private GuestRole role = GuestRole.ATTENDEE;
@@ -39,15 +34,8 @@ public class GuestList {
     @Column(name = "invited_at", nullable = false, updatable = false)
     private LocalDateTime invitedAt;
     
-    @Column(name = "responded_at")
-    private LocalDateTime respondedAt;
-    
-    @Column(name = "checked_in")
-    @Builder.Default
-    private Boolean checkedIn = false;
-    
-    @Column(name = "checked_in_at")
-    private LocalDateTime checkedInAt;
+    @Column(name = "invited_by_user_id")
+    private Long invitedByUserId;
     
     @Column(length = 1000)
     private String notes;
@@ -55,13 +43,7 @@ public class GuestList {
     @PrePersist
     protected void onCreate() {
         invitedAt = LocalDateTime.now();
-        if (rsvpStatus == null) rsvpStatus = RsvpStatus.PENDING;
         if (role == null) role = GuestRole.ATTENDEE;
-        if (checkedIn == null) checkedIn = false;
-    }
-    
-    public enum RsvpStatus {
-        PENDING, ACCEPTED, DECLINED, MAYBE
     }
     
     public enum GuestRole {
