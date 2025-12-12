@@ -92,7 +92,7 @@ jobs:
             IMAGE_TAG="dev"
           fi
 
-          helm upgrade --install event-manager ./helm/event-manager \
+          helm upgrade --install event-manager ./event-manager \
             --namespace ${NAMESPACE} \
             --set image.tag=${IMAGE_TAG} \
             --create-namespace \
