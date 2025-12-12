@@ -2,7 +2,7 @@ name: Event Manager Service - CI/CD
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, feature/helm-charts]
 
 env:
   REGISTRY: ghcr.io
@@ -45,7 +45,7 @@ jobs:
     name: Build Docker Image
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/feature/helm-charts')
     permissions:
       contents: read
       packages: write
@@ -92,7 +92,9 @@ jobs:
             IMAGE_TAG="dev"
           fi
 
-          IMAGE="${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
-
-          kubectl set image deployment/${{ env.SERVICE_NAME }} ${{ env.SERVICE_NAME }}=${IMAGE} -n ${NAMESPACE}
-          kubectl rollout status deployment/${{ env.SERVICE_NAME }} -n ${NAMESPACE} --timeout=5m
+          helm upgrade --install event-manager ./helm/event-manager \
+            --namespace ${NAMESPACE} \
+            --set image.tag=${IMAGE_TAG} \
+            --create-namespace \
+            --wait \
+            --timeout=5m
