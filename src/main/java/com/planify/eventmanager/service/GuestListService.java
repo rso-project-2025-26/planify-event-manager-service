@@ -9,10 +9,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -62,9 +65,20 @@ public class GuestListService {
         GuestList saved = guestListRepository.save(guestList);
         
         // Publish Kafka event for guest-service to create invitation
-        kafkaProducer.sendMessage("guest-invited", 
-            String.format("{\"eventId\": %d, \"userId\": %s, \"invitedBy\": %d, \"invitedAt\": \"%s\"}", 
-                eventId, userId, invitedByUserId, LocalDateTime.now()));
+        Map<String, Object> payload = Map.of(
+            "eventId", eventId,
+            "userId", userId.toString(),
+            "invitedBy", invitedByUserId.toString(),
+            "invitedAt", LocalDateTime.now().toString()
+        );
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("guest-invited", message);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize guest-invited payload for user {} in event {}: {}", userId, eventId, e.getMessage(), e);
+        }
         
         log.info("Invited user {} to event {} by user {}", userId, eventId, invitedByUserId);
         return saved;
@@ -77,9 +91,20 @@ public class GuestListService {
         guestListRepository.delete(guest);
         
         // Publish Kafka event for guest-service to remove invitation
-        kafkaProducer.sendMessage("guest-removed", 
-            String.format("{\"eventId\": %d, \"userId\": %s, \"removedBy\": %d, \"removedAt\": \"%s\"}", 
-                eventId, userId, removedByUserId, LocalDateTime.now()));
+        Map<String, Object> payload = Map.of(
+            "eventId", eventId,
+            "userId", userId.toString(),
+            "removedBy", removedByUserId.toString(),
+            "removedAt", LocalDateTime.now().toString()
+        );
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("guest-removed", message);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize guest-removed payload for user {} in event {}: {}", userId, eventId, e.getMessage(), e);
+        }
         
         log.info("Removed user {} from event {} by user {}", userId, eventId, removedByUserId);
     }

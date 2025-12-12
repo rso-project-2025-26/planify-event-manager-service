@@ -7,10 +7,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -72,8 +75,18 @@ public class EventService {
         eventRepository.delete(event);
         
         // Publish delete event to Kafka
-        kafkaProducer.sendMessage("event-deleted", 
-            String.format("{\"eventId\": %d, \"deletedAt\": \"%s\"}", id, LocalDateTime.now()));
+        Map<String, Object> payload = Map.of(
+            "eventId", id,
+            "deletedAt", LocalDateTime.now().toString()
+        );
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-deleted", message);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-deleted payload for event {}: {}", id, e.getMessage(), e);
+        }
         
         log.info("Deleted event: {}", id);
     }
@@ -128,8 +141,18 @@ public class EventService {
         Event cancelled = eventRepository.save(event);
         
         // Publish cancel event to Kafka
-        kafkaProducer.sendMessage("event-cancelled", 
-            String.format("{\"eventId\": %d, \"cancelledAt\": \"%s\"}", id, LocalDateTime.now()));
+        Map<String, Object> payload = Map.of(
+            "eventId", id,
+            "cancelledAt", LocalDateTime.now().toString()
+        );
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-cancelled", message);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-cancelled payload for event {}: {}", id, e.getMessage(), e);
+        }
         
         log.info("Cancelled event: {}", id);
         return cancelled;
