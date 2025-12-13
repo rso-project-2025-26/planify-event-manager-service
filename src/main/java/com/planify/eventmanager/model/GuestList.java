@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "guest_list")
@@ -24,12 +25,7 @@ public class GuestList {
     private Long eventId;
     
     @Column(name = "user_id", nullable = false)
-    private Long userId;
-    
-    @Enumerated(EnumType.STRING)
-    @Column(name = "rsvp_status", nullable = false)
-    @Builder.Default
-    private RsvpStatus rsvpStatus = RsvpStatus.PENDING;
+    private UUID userId;
     
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
@@ -39,15 +35,8 @@ public class GuestList {
     @Column(name = "invited_at", nullable = false, updatable = false)
     private LocalDateTime invitedAt;
     
-    @Column(name = "responded_at")
-    private LocalDateTime respondedAt;
-    
-    @Column(name = "checked_in")
-    @Builder.Default
-    private Boolean checkedIn = false;
-    
-    @Column(name = "checked_in_at")
-    private LocalDateTime checkedInAt;
+    @Column(name = "invited_by_user_id")
+    private UUID invitedByUserId;
     
     @Column(length = 1000)
     private String notes;
@@ -55,13 +44,7 @@ public class GuestList {
     @PrePersist
     protected void onCreate() {
         invitedAt = LocalDateTime.now();
-        if (rsvpStatus == null) rsvpStatus = RsvpStatus.PENDING;
         if (role == null) role = GuestRole.ATTENDEE;
-        if (checkedIn == null) checkedIn = false;
-    }
-    
-    public enum RsvpStatus {
-        PENDING, ACCEPTED, DECLINED, MAYBE
     }
     
     public enum GuestRole {

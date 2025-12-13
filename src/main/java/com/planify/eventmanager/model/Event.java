@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "events")
@@ -38,9 +39,12 @@ public class Event {
     
     @Column(name = "location_name", length = 500)
     private String locationName;
-    
+
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "organizer_id", nullable = false)
-    private Long organizerId;
+    private UUID organizerId;
     
     @Column(name = "max_attendees")
     private Integer maxAttendees;

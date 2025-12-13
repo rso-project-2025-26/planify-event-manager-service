@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @CrossOrigin(origins = "http://localhost:4200")
@@ -93,16 +94,16 @@ public class EventController {
     }
 
     // Query Operations
-    @GetMapping("/organizer/{organizerId}")
+    @GetMapping("/organization/{organizationId}")
     @Operation(
-            summary = "Get events by organizer ID",
-            description = "Returns all events created by the specified organizer."
+            summary = "Get events by organization ID",
+            description = "Returns all events created by the specified organization."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Events retrieved successfully")
     })
-    public ResponseEntity<List<Event>> getEventsByOrganizer(@PathVariable Long organizerId) {
-        return ResponseEntity.ok(eventService.getEventsByOrganizer(organizerId));
+    public ResponseEntity<List<Event>> getEventsByOrganization(@PathVariable UUID organizationId) {
+        return ResponseEntity.ok(eventService.getEventsByOrganization(organizationId));
     }
 
     @GetMapping("/status/{status}")

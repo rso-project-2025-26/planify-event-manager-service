@@ -9,9 +9,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -22,22 +26,25 @@ public class GuestListService {
     private final EventRepository eventRepository;
     private final KafkaProducer kafkaProducer;
     
-    // CRUD Operations
+    // Get all guests for an event
     public List<GuestList> getAllGuestsForEvent(Long eventId) {
         return guestListRepository.findByEventId(eventId);
     }
     
-    public List<GuestList> getAllEventsForUser(Long userId) {
+    // Get all events user is invited to
+    public List<GuestList> getAllEventsForUser(UUID userId) {
         return guestListRepository.findByUserId(userId);
     }
     
-    public GuestList getGuestEntry(Long eventId, Long userId) {
+    // Get specific guest entry
+    public GuestList getGuestEntry(Long eventId, UUID userId) {
         return guestListRepository.findByEventIdAndUserId(eventId, userId)
             .orElseThrow(() -> new RuntimeException("Guest not found for event: " + eventId + " and user: " + userId));
     }
     
+    // Invite guest to event (organizer action)
     @Transactional
-    public GuestList inviteGuest(Long eventId, Long userId, GuestList.GuestRole role, String notes) {
+    public GuestList inviteGuest(Long eventId, UUID userId, UUID invitedByUserId, GuestList.GuestRole role, String notes) {
         // Check if event exists
         Event event = eventRepository.findById(eventId)
             .orElseThrow(() -> new RuntimeException("Event not found: " + eventId));
@@ -51,110 +58,85 @@ public class GuestListService {
             .eventId(eventId)
             .userId(userId)
             .role(role != null ? role : GuestList.GuestRole.ATTENDEE)
-            .rsvpStatus(GuestList.RsvpStatus.PENDING)
+            .invitedByUserId(invitedByUserId)
             .notes(notes)
             .build();
         
         GuestList saved = guestListRepository.save(guestList);
         
-        // Publish invite event to Kafka
-        kafkaProducer.sendMessage("guest-invited", 
-            String.format("User %d invited to event %d", userId, eventId));
+        // Publish Kafka event for guest-service to create invitation
+        Map<String, Object> payload = Map.of(
+            "eventId", eventId,
+            "userId", userId.toString(),
+            "invitedBy", invitedByUserId.toString(),
+            "invitedAt", LocalDateTime.now().toString()
+        );
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("guest-invited", message);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize guest-invited payload for user {} in event {}: {}", userId, eventId, e.getMessage(), e);
+        }
         
-        log.info("Invited user {} to event {}", userId, eventId);
+        log.info("Invited user {} to event {} by user {}", userId, eventId, invitedByUserId);
         return saved;
     }
     
+    // Remove guest from event (organizer action)
     @Transactional
-    public void removeGuest(Long eventId, Long userId) {
+    public void removeGuest(Long eventId, UUID userId, UUID removedByUserId) {
         GuestList guest = getGuestEntry(eventId, userId);
         guestListRepository.delete(guest);
         
-        // Publish remove event to Kafka
-        kafkaProducer.sendMessage("guest-removed", 
-            String.format("User %d removed from event %d", userId, eventId));
+        // Publish Kafka event for guest-service to remove invitation
+        Map<String, Object> payload = Map.of(
+            "eventId", eventId,
+            "userId", userId.toString(),
+            "removedBy", removedByUserId.toString(),
+            "removedAt", LocalDateTime.now().toString()
+        );
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("guest-removed", message);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize guest-removed payload for user {} in event {}: {}", userId, eventId, e.getMessage(), e);
+        }
         
-        log.info("Removed user {} from event {}", userId, eventId);
+        log.info("Removed user {} from event {} by user {}", userId, eventId, removedByUserId);
     }
     
-    // RSVP Management
+    // Update guest role (organizer action)
     @Transactional
-    public GuestList updateRsvp(Long eventId, Long userId, GuestList.RsvpStatus status) {
+    public GuestList updateGuestRole(Long eventId, UUID userId, GuestList.GuestRole newRole) {
         GuestList guest = getGuestEntry(eventId, userId);
-        guest.setRsvpStatus(status);
-        guest.setRespondedAt(LocalDateTime.now());
-        
+        guest.setRole(newRole);
         GuestList updated = guestListRepository.save(guest);
         
-        // Publish update event to Kafka
-        kafkaProducer.sendMessage("rsvp-updated", 
-            String.format("User %d RSVP %s for event %d", userId, status, eventId));
-        
-        log.info("User {} RSVP {} for event {}", userId, status, eventId);
-        
-        // Update event attendee count
-        updateEventAttendeeCount(eventId);
-        
+        log.info("Updated role for user {} in event {} to {}", userId, eventId, newRole);
         return updated;
     }
     
+    // Update guest notes (organizer action)
     @Transactional
-    public GuestList acceptInvitation(Long eventId, Long userId) {
-        return updateRsvp(eventId, userId, GuestList.RsvpStatus.ACCEPTED);
-    }
-    
-    @Transactional
-    public GuestList declineInvitation(Long eventId, Long userId) {
-        return updateRsvp(eventId, userId, GuestList.RsvpStatus.DECLINED);
-    }
-    
-    // Check-in Management
-    @Transactional
-    public GuestList checkInGuest(Long eventId, Long userId) {
+    public GuestList updateGuestNotes(Long eventId, UUID userId, String notes) {
         GuestList guest = getGuestEntry(eventId, userId);
+        guest.setNotes(notes);
+        GuestList updated = guestListRepository.save(guest);
         
-        if (!guest.getRsvpStatus().equals(GuestList.RsvpStatus.ACCEPTED)) {
-            throw new RuntimeException("Guest has not accepted invitation");
-        }
-        
-        guest.setCheckedIn(true);
-        guest.setCheckedInAt(LocalDateTime.now());
-        
-        GuestList checkedIn = guestListRepository.save(guest);
-        
-        // Publish check-in event to Kafka
-        kafkaProducer.sendMessage("guest-checked-in", 
-            String.format("User %d checked in to event %d", userId, eventId));
-        
-        log.info("User {} checked in to event {}", userId, eventId);
-        return checkedIn;
+        log.info("Updated notes for user {} in event {}", userId, eventId);
+        return updated;
     }
     
-    public List<GuestList> getCheckedInGuests(Long eventId) {
-        return guestListRepository.findByEventIdAndCheckedIn_True(eventId);
-    }
-    
-    public Long countCheckedInGuests(Long eventId) {
-        return guestListRepository.countByEventIdAndCheckedIn_True(eventId);
-    }
-    
-    // Query Operations
-    public List<GuestList> getGuestsByStatus(Long eventId, GuestList.RsvpStatus status) {
-        return guestListRepository.findByEventIdAndRsvpStatus(eventId, status);
-    }
-    
+    // Query operations
     public List<GuestList> getGuestsByRole(Long eventId, GuestList.GuestRole role) {
         return guestListRepository.findByEventIdAndRole(eventId, role);
     }
     
-    // Helper Methods
-    private void updateEventAttendeeCount(Long eventId) {
-        Event event = eventRepository.findById(eventId).orElse(null);
-        if (event != null) {
-            Long acceptedCount = guestListRepository.countByEventIdAndRsvpStatus(eventId, 
-                GuestList.RsvpStatus.ACCEPTED);
-            event.setCurrentAttendees(acceptedCount.intValue());
-            eventRepository.save(event);
-        }
+    public boolean isUserInvited(Long eventId, UUID userId) {
+        return guestListRepository.existsByEventIdAndUserId(eventId, userId);
     }
 }

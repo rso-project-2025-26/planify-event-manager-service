@@ -3,14 +3,17 @@ package com.planify.eventmanager.service;
 import com.planify.eventmanager.event.KafkaProducer;
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.repository.EventRepository;
-import com.planify.eventmanager.repository.GuestListRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -18,7 +21,6 @@ import java.util.List;
 public class EventService {
     
     private final EventRepository eventRepository;
-    private final GuestListRepository guestListRepository;
     private final KafkaProducer kafkaProducer;
     
     // CRUD Operations    
@@ -73,15 +75,25 @@ public class EventService {
         eventRepository.delete(event);
         
         // Publish delete event to Kafka
-        kafkaProducer.sendMessage("event-deleted", 
-            String.format("Event deleted: ID %d", id));
+        Map<String, Object> payload = Map.of(
+            "eventId", id,
+            "deletedAt", LocalDateTime.now().toString()
+        );
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-deleted", message);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-deleted payload for event {}: {}", id, e.getMessage(), e);
+        }
         
         log.info("Deleted event: {}", id);
     }
     
     // Query Operations    
-    public List<Event> getEventsByOrganizer(Long organizerId) {
-        return eventRepository.findByOrganizerId(organizerId);
+    public List<Event> getEventsByOrganization(UUID organizationId) {
+        return eventRepository.findByOrganizationId(organizationId);
     }
     
     public List<Event> getEventsByStatus(Event.EventStatus status) {
@@ -98,6 +110,14 @@ public class EventService {
     
     public List<Event> getPastEvents() {
         return eventRepository.findPastEvents(LocalDateTime.now());
+    }
+    
+    public List<Event> getEventsByDateRange(LocalDateTime start, LocalDateTime end) {
+        return eventRepository.findByEventDateBetween(start, end);
+    }
+    
+    public List<Event> getEventsByLocation(Long locationId) {
+        return eventRepository.findByLocationId(locationId);
     }
     
     // Status Management    
@@ -120,8 +140,19 @@ public class EventService {
         event.setStatus(Event.EventStatus.CANCELLED);
         Event cancelled = eventRepository.save(event);
         
-        kafkaProducer.sendMessage("event-cancelled", 
-            String.format("Event cancelled: %s (ID: %d)", cancelled.getTitle(), cancelled.getId()));
+        // Publish cancel event to Kafka
+        Map<String, Object> payload = Map.of(
+            "eventId", id,
+            "cancelledAt", LocalDateTime.now().toString()
+        );
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-cancelled", message);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-cancelled payload for event {}: {}", id, e.getMessage(), e);
+        }
         
         log.info("Cancelled event: {}", id);
         return cancelled;
@@ -135,15 +166,5 @@ public class EventService {
         
         log.info("Completed event: {}", id);
         return completed;
-    }
-    
-    // Attendee Count Management    
-    @Transactional
-    public Event updateAttendeeCount(Long id) {
-        Event event = getEventById(id);
-        Long acceptedCount = guestListRepository.countByEventIdAndRsvpStatus(id, 
-            com.planify.eventmanager.model.GuestList.RsvpStatus.ACCEPTED);
-        event.setCurrentAttendees(acceptedCount.intValue());
-        return eventRepository.save(event);
     }
 }

@@ -86,13 +86,15 @@ jobs:
       - run: |
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             NAMESPACE="planify-main"
-            IMAGE_TAG="main"
           else
             NAMESPACE="planify-dev"
-            IMAGE_TAG="dev"
           fi
 
-          IMAGE="${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          IMAGE_TAG=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
 
-          kubectl set image deployment/${{ env.SERVICE_NAME }} ${{ env.SERVICE_NAME }}=${IMAGE} -n ${NAMESPACE}
-          kubectl rollout status deployment/${{ env.SERVICE_NAME }} -n ${NAMESPACE} --timeout=5m
+          helm upgrade --install event-manager ./event-manager \
+            --namespace ${NAMESPACE} \
+            --set image.tag=${IMAGE_TAG} \
+            --create-namespace \
+            --wait \
+            --timeout=5m

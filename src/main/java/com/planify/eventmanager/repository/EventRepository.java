@@ -7,12 +7,13 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Repository
 public interface EventRepository extends JpaRepository<Event, Long> {
     
     // Find by organizer
-    List<Event> findByOrganizerId(Long organizerId);
+    List<Event> findByOrganizationId(UUID organizationId);
     
     // Find by status
     List<Event> findByStatus(Event.EventStatus status);
@@ -37,9 +38,6 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     // Find events by location
     List<Event> findByLocationId(Long locationId);
     
-    // Count events by organizer
-    Long countByOrganizerId(Long organizerId);
-    
     // Find events by organizer and status
-    List<Event> findByOrganizerIdAndStatus(Long organizerId, Event.EventStatus status);
+    List<Event> findByOrganizationIdAndStatus(UUID organizationId, Event.EventStatus status);
 }

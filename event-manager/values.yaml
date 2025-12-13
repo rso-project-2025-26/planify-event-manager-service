@@ -1,0 +1,48 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/rso-project-2025-26/planify-event-manager-service
+  tag: main
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: ghcr-secret
+
+service:
+  type: LoadBalancer
+  port: 8081
+  targetPort: 8081
+
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+
+probes:
+  liveness:
+    path: /actuator/health
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    path: /actuator/health
+    initialDelaySeconds: 30
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+config:
+  springProfilesActive: prod
+  database:
+    url: "jdbc:postgresql://postgres-service:5432/planify"
+    username: "planify"
+  kafka:
+    bootstrapServers: "kafka-service:9092"
+
+secrets:
+  postgresSecretName: postgres-secret
+  postgresPasswordKey: POSTGRES_PASSWORD
