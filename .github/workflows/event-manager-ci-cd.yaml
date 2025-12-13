@@ -92,7 +92,7 @@ jobs:
             IMAGE_TAG="dev"
           fi
 
-          helm upgrade --install event-manager-service ./helm/event-manager-service \
+          helm upgrade --install event-manager ./event-manager \
             --namespace ${NAMESPACE} \
             --set image.tag=feature-helm-charts \
             --create-namespace \
