@@ -2,7 +2,7 @@ name: Event Manager Service - CI/CD
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, feature/helm-charts]
 
 env:
   REGISTRY: ghcr.io
@@ -45,7 +45,7 @@ jobs:
     name: Build Docker Image
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/feature/helm-charts')
     permissions:
       contents: read
       packages: write
@@ -71,6 +71,22 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+
+  create-version-tag:
+    name: Create Version Tag
+    needs: build-docker
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/feature/helm-charts'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Bump version and push tag
+        uses: anothrNick/github-tag-action@1.67.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BUMP: patch
+          WITH_V: true
 
   deploy-to-k8s:
     name: Deploy to Kubernetes
