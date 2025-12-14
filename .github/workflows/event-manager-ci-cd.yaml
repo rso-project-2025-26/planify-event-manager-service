@@ -77,6 +77,8 @@ jobs:
     needs: build-docker
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/feature/helm-charts'
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
