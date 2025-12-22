@@ -76,7 +76,7 @@ jobs:
     name: Create Version Tag
     needs: build-docker
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/feature/main'
+    if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
     steps:
@@ -118,7 +118,7 @@ jobs:
 
           IMAGE_TAG=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
 
-          helm upgrade --install event-manager ./event-manager \
+          helm upgrade --install event-manager ./helm/event-manager \
             --namespace ${NAMESPACE} \
             --set image.tag=${IMAGE_TAG} \
             --create-namespace \
