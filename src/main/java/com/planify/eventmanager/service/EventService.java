@@ -28,7 +28,7 @@ public class EventService {
         return eventRepository.findAll();
     }
     
-    public Event getEventById(Long id) {
+    public Event getEventById(UUID id) {
         return eventRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Event not found with id: " + id));
     }
@@ -39,14 +39,14 @@ public class EventService {
         
         // Publish event to Kafka
         kafkaProducer.sendMessage("event-created", 
-            String.format("Event created: %s (ID: %d)", savedEvent.getTitle(), savedEvent.getId()));
+            String.format("Event created: %s (ID: %s)", savedEvent.getTitle(), savedEvent.getId()));
         
         log.info("Created new event: {}", savedEvent.getId());
         return savedEvent;
     }
     
     @Transactional
-    public Event updateEvent(Long id, Event eventDetails) {
+    public Event updateEvent(UUID id, Event eventDetails) {
         Event event = getEventById(id);
         
         event.setTitle(eventDetails.getTitle());
@@ -63,20 +63,20 @@ public class EventService {
         
         // Publish update event to Kafka
         kafkaProducer.sendMessage("event-updated", 
-            String.format("Event updated: %s (ID: %d)", updatedEvent.getTitle(), updatedEvent.getId()));
+            String.format("Event updated: %s (ID: %s)", updatedEvent.getTitle(), updatedEvent.getId()));
         
         log.info("Updated event: {}", updatedEvent.getId());
         return updatedEvent;
     }
     
     @Transactional
-    public void deleteEvent(Long id) {
+    public void deleteEvent(UUID id) {
         Event event = getEventById(id);
         eventRepository.delete(event);
         
         // Publish delete event to Kafka
         Map<String, Object> payload = Map.of(
-            "eventId", id,
+            "eventId", id.toString(),
             "deletedAt", LocalDateTime.now().toString()
         );
 
@@ -116,33 +116,33 @@ public class EventService {
         return eventRepository.findByEventDateBetween(start, end);
     }
     
-    public List<Event> getEventsByLocation(Long locationId) {
+    public List<Event> getEventsByLocation(UUID locationId) {
         return eventRepository.findByLocationId(locationId);
     }
     
     // Status Management    
     @Transactional
-    public Event publishEvent(Long id) {
+    public Event publishEvent(UUID id) {
         Event event = getEventById(id);
         event.setStatus(Event.EventStatus.PUBLISHED);
         Event published = eventRepository.save(event);
         
         kafkaProducer.sendMessage("event-published", 
-            String.format("Event published: %s (ID: %d)", published.getTitle(), published.getId()));
+            String.format("Event published: %s (ID: %s)", published.getTitle(), published.getId()));
         
         log.info("Published event: {}", id);
         return published;
     }
     
     @Transactional
-    public Event cancelEvent(Long id) {
+    public Event cancelEvent(UUID id) {
         Event event = getEventById(id);
         event.setStatus(Event.EventStatus.CANCELLED);
         Event cancelled = eventRepository.save(event);
         
         // Publish cancel event to Kafka
         Map<String, Object> payload = Map.of(
-            "eventId", id,
+            "eventId", id.toString(),
             "cancelledAt", LocalDateTime.now().toString()
         );
 
@@ -159,7 +159,7 @@ public class EventService {
     }
     
     @Transactional
-    public Event completeEvent(Long id) {
+    public Event completeEvent(UUID id) {
         Event event = getEventById(id);
         event.setStatus(Event.EventStatus.COMPLETED);
         Event completed = eventRepository.save(event);

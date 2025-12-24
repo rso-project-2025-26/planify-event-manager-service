@@ -56,7 +56,7 @@ public class EventController {
             @ApiResponse(responseCode = "404", description = "Event not found")
     })
     @PreAuthorize("hasAnyRole('UPORABNIK','ADMINISTRATOR')")
-    public ResponseEntity<Event> getEventById(@PathVariable Long id) {
+    public ResponseEntity<Event> getEventById(@PathVariable UUID id) {
         return ResponseEntity.ok(eventService.getEventById(id));
     }
 
@@ -94,7 +94,7 @@ public class EventController {
     })
     @PreAuthorize("hasAnyRole('ORG_ADMIN', 'ORGANISER')")
     public ResponseEntity<Event> updateEvent(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @RequestBody Event event
     ) {
         if (!securityService.hasAnyRoleInOrganization(event.getOrganizationId(), List.of("ORG_ADMIN", "ORGANISER"))) {
@@ -116,7 +116,7 @@ public class EventController {
             @ApiResponse(responseCode = "404", description = "Event not found")
     })
     @PreAuthorize("hasAnyRole('ORG_ADMIN', 'ORGANISER')")
-    public ResponseEntity<Void> deleteEvent(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteEvent(@PathVariable UUID id) {
         if (!securityService.hasAnyRoleInOrganization(eventService.getEventById(id).getOrganizationId(), List.of("ORG_ADMIN", "ORGANISER"))) {
             log.error("User is not authorized to delete events in this organization.");
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -197,7 +197,7 @@ public class EventController {
             @ApiResponse(responseCode = "200", description = "Event published"),
             @ApiResponse(responseCode = "404", description = "Event not found")
     })
-    public ResponseEntity<Event> publishEvent(@PathVariable Long id) {
+    public ResponseEntity<Event> publishEvent(@PathVariable UUID id) {
         return ResponseEntity.ok(eventService.publishEvent(id));
     }
 
@@ -210,7 +210,7 @@ public class EventController {
             @ApiResponse(responseCode = "200", description = "Event cancelled"),
             @ApiResponse(responseCode = "404", description = "Event not found")
     })
-    public ResponseEntity<Event> cancelEvent(@PathVariable Long id) {
+    public ResponseEntity<Event> cancelEvent(@PathVariable UUID id) {
         return ResponseEntity.ok(eventService.cancelEvent(id));
     }
 
@@ -223,7 +223,7 @@ public class EventController {
             @ApiResponse(responseCode = "200", description = "Event marked as completed"),
             @ApiResponse(responseCode = "404", description = "Event not found")
     })
-    public ResponseEntity<Event> completeEvent(@PathVariable Long id) {
+    public ResponseEntity<Event> completeEvent(@PathVariable UUID id) {
         return ResponseEntity.ok(eventService.completeEvent(id));
     }
 }

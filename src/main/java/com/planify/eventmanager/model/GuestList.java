@@ -18,36 +18,23 @@ import java.util.UUID;
 public class GuestList {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
     
     @Column(name = "event_id", nullable = false)
-    private Long eventId;
+    private UUID eventId;
     
     @Column(name = "user_id", nullable = false)
     private UUID userId;
     
-    @Enumerated(EnumType.STRING)
-    @Column(name = "role")
-    @Builder.Default
-    private GuestRole role = GuestRole.ATTENDEE;
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
     
     @Column(name = "invited_at", nullable = false, updatable = false)
     private LocalDateTime invitedAt;
     
-    @Column(name = "invited_by_user_id")
-    private UUID invitedByUserId;
-    
-    @Column(length = 1000)
-    private String notes;
-    
     @PrePersist
     protected void onCreate() {
         invitedAt = LocalDateTime.now();
-        if (role == null) role = GuestRole.ATTENDEE;
-    }
-    
-    public enum GuestRole {
-        ATTENDEE, SPEAKER, VIP, STAFF
     }
 }
