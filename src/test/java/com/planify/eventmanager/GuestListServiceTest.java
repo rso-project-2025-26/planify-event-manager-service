@@ -1,10 +1,11 @@
-package com.planify.eventmanager.service;
+package com.planify.eventmanager;
 
 import com.planify.eventmanager.event.KafkaProducer;
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.model.GuestList;
 import com.planify.eventmanager.repository.EventRepository;
 import com.planify.eventmanager.repository.GuestListRepository;
+import com.planify.eventmanager.service.GuestListService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

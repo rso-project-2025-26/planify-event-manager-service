@@ -2,18 +2,22 @@ package com.planify.eventmanager.controller;
 
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.service.EventService;
+import com.planify.eventmanager.service.SecurityService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @CrossOrigin(origins = "http://localhost:4200")
 @RequestMapping("/api/events")
@@ -22,6 +26,7 @@ import java.util.UUID;
 public class EventController {
 
     private final EventService eventService;
+    private final SecurityService securityService;
 
     // CRUD Operations
     @GetMapping
@@ -30,8 +35,11 @@ public class EventController {
             description = "Returns a list of all events."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Successfully retrieved events")
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved events"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden")
     })
+    @PreAuthorize("hasAnyRole('ADMINISTRATOR')")
     public ResponseEntity<List<Event>> getAllEvents() {
         return ResponseEntity.ok(eventService.getAllEvents());
     }
@@ -43,8 +51,11 @@ public class EventController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Event found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
             @ApiResponse(responseCode = "404", description = "Event not found")
     })
+    @PreAuthorize("hasAnyRole('UPORABNIK','ADMINISTRATOR')")
     public ResponseEntity<Event> getEventById(@PathVariable Long id) {
         return ResponseEntity.ok(eventService.getEventById(id));
     }
@@ -56,9 +67,16 @@ public class EventController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Event successfully created"),
-            @ApiResponse(responseCode = "400", description = "Invalid event data")
+            @ApiResponse(responseCode = "400", description = "Invalid event data"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden")
     })
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'ORGANISER')")
     public ResponseEntity<Event> createEvent(@RequestBody Event event) {
+        if (!securityService.hasAnyRoleInOrganization(event.getOrganizationId(), List.of("ORG_ADMIN", "ORGANISER"))) {
+            log.error("User is not authorized to create events in this organization.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(eventService.createEvent(event));
     }
@@ -70,12 +88,19 @@ public class EventController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Event updated"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
             @ApiResponse(responseCode = "404", description = "Event not found")
     })
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'ORGANISER')")
     public ResponseEntity<Event> updateEvent(
             @PathVariable Long id,
             @RequestBody Event event
     ) {
+        if (!securityService.hasAnyRoleInOrganization(event.getOrganizationId(), List.of("ORG_ADMIN", "ORGANISER"))) {
+            log.error("User is not authorized to update events in this organization.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(eventService.updateEvent(id, event));
     }
 
@@ -86,9 +111,16 @@ public class EventController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Event deleted"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
             @ApiResponse(responseCode = "404", description = "Event not found")
     })
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'ORGANISER')")
     public ResponseEntity<Void> deleteEvent(@PathVariable Long id) {
+        if (!securityService.hasAnyRoleInOrganization(eventService.getEventById(id).getOrganizationId(), List.of("ORG_ADMIN", "ORGANISER"))) {
+            log.error("User is not authorized to delete events in this organization.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         eventService.deleteEvent(id);
         return ResponseEntity.noContent().build();
     }
