@@ -42,22 +42,37 @@ public class SecurityConfig {
                         ).permitAll()
                         // Actuator health/info open
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        // Public events endpoint
-                        .requestMatchers(HttpMethod.GET, "/api/events/**").permitAll()
-                        // Vsi ostali endpointi
+                        // Public events endpoints - allow anonymous access
+                        .requestMatchers(HttpMethod.GET, "/api/events/public").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/events/upcoming").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/events/past").permitAll()
+                        // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )
-                // Omogočimo JWT autentikacijo
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(keycloakJwtAuthenticationConverter())));
+                // Enable JWT authentication - but don't require it for permitAll()
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(keycloakJwtAuthenticationConverter()))
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            // For permitAll endpoints, allow anonymous access
+                            String path = request.getRequestURI();
+                            if (path.equals("/api/events/public") || 
+                                path.equals("/api/events/upcoming") || 
+                                path.equals("/api/events/past")) {
+                                response.setStatus(200);
+                                return;
+                            }
+                            response.sendError(401, "Unauthorized");
+                        })
+                );
 
         return http.build();
     }
 
     /**
-     * Preslikamo Kecloak vloge
+     * Map Keycloak roles
      * - realm_access.roles -> ROLE_*
      * - resource_access.<client>.roles -> ROLE_*
-     * Ohranimo privzete scope authorities (SCOPE_*).
+     * Keep default scope authorities (SCOPE_*).
      */
     @Bean
     public JwtAuthenticationConverter keycloakJwtAuthenticationConverter() {

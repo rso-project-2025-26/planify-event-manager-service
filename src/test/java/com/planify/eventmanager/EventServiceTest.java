@@ -1,9 +1,8 @@
-package com.planify.eventmanager;
+package com.planify.eventmanager.service;
 
 import com.planify.eventmanager.event.KafkaProducer;
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.repository.EventRepository;
-import com.planify.eventmanager.service.EventService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,13 +30,15 @@ class EventServiceTest {
     private EventService eventService;
 
     private Event testEvent;
-    private Long testEventId;
+    private UUID testEventId;
+    private UUID locationId;
     private UUID organizationId;
     private UUID userId;
 
     @BeforeEach
     void setUp() {
-        testEventId = 1L;
+        testEventId = UUID.randomUUID();
+        locationId = UUID.randomUUID();
         organizationId = UUID.randomUUID();
         userId = UUID.randomUUID();
 
@@ -47,7 +48,7 @@ class EventServiceTest {
                 .description("A test conference event")
                 .eventDate(LocalDateTime.now().plusDays(7))
                 .endDate(LocalDateTime.now().plusDays(7).plusHours(3))
-                .locationId(1L)
+                .locationId(locationId)
                 .locationName("Main Hall")
                 .organizationId(organizationId)
                 .organizerId(userId)
@@ -113,13 +114,14 @@ class EventServiceTest {
 
     @Test
     void testUpdateEvent() {
+        UUID newLocationId = UUID.randomUUID();
         Event details = Event.builder()
                 .title("Updated Title")
                 .description("Updated Description")
                 .eventDate(LocalDateTime.now().plusDays(10))
                 .eventType(Event.EventType.PRIVATE)
                 .status(Event.EventStatus.PUBLISHED)
-                .locationId(5L)
+                .locationId(newLocationId)
                 .locationName("Updated Location")
                 .maxAttendees(200)
                 .build();
@@ -244,9 +246,9 @@ class EventServiceTest {
 
     @Test
     void testGetEventsByLocation() {
-        when(eventRepository.findByLocationId(1L)).thenReturn(List.of(testEvent));
+        when(eventRepository.findByLocationId(locationId)).thenReturn(List.of(testEvent));
 
-        List<Event> result = eventService.getEventsByLocation(1L);
+        List<Event> result = eventService.getEventsByLocation(locationId);
 
         assertEquals(1, result.size());
     }

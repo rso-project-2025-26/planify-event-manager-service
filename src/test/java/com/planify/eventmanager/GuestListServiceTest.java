@@ -1,11 +1,10 @@
-package com.planify.eventmanager;
+package com.planify.eventmanager.service;
 
 import com.planify.eventmanager.event.KafkaProducer;
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.model.GuestList;
 import com.planify.eventmanager.repository.EventRepository;
 import com.planify.eventmanager.repository.GuestListRepository;
-import com.planify.eventmanager.service.GuestListService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,17 +36,17 @@ class GuestListServiceTest {
 
     private GuestList testGuest;
     private Event testEvent;
-    private Long testEventId;
+    private UUID testEventId;
     private UUID testUserId;
-    private Long testGuestId;
-    private UUID testInvitedByUserId;
+    private UUID testGuestId;
+    private UUID organizationId;
 
     @BeforeEach
     void setUp() {
-        testEventId = 1L;
+        testEventId = UUID.randomUUID();
         testUserId = UUID.randomUUID();
-        testGuestId = 10L;
-        testInvitedByUserId = UUID.randomUUID();
+        testGuestId = UUID.randomUUID();
+        organizationId = UUID.randomUUID();
 
         testEvent = Event.builder()
                 .id(testEventId)
@@ -55,7 +54,7 @@ class GuestListServiceTest {
                 .description("Conference")
                 .eventDate(LocalDateTime.now().plusDays(7))
                 .endDate(LocalDateTime.now().plusDays(7).plusHours(2))
-                .organizationId(UUID.randomUUID())
+                .organizationId(organizationId)
                 .organizerId(UUID.randomUUID())
                 .maxAttendees(100)
                 .currentAttendees(0)
@@ -66,10 +65,8 @@ class GuestListServiceTest {
                 .id(testGuestId)
                 .eventId(testEventId)
                 .userId(testUserId)
-                .role(GuestList.GuestRole.ATTENDEE)
+                .organizationId(organizationId)
                 .invitedAt(LocalDateTime.now())
-                .invitedByUserId(testInvitedByUserId)
-                .notes("Initial note")
                 .build();
     }
 
@@ -124,13 +121,12 @@ class GuestListServiceTest {
         when(guestListRepository.existsByEventIdAndUserId(testEventId, testUserId)).thenReturn(false);
         when(guestListRepository.save(any(GuestList.class))).thenReturn(testGuest);
 
-        GuestList result = guestListService.inviteGuest(
-                testEventId, testUserId, testInvitedByUserId,
-                GuestList.GuestRole.SPEAKER, "Keynote");
+        GuestList result = guestListService.inviteGuest(testEventId, testUserId, organizationId);
 
         assertNotNull(result);
         assertEquals(testEventId, result.getEventId());
         assertEquals(testUserId, result.getUserId());
+        assertEquals(organizationId, result.getOrganizationId());
 
         verify(kafkaProducer).sendMessage(eq("guest-invited"), contains("\"eventId\":"));
     }
@@ -140,7 +136,7 @@ class GuestListServiceTest {
         when(eventRepository.findById(testEventId)).thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class,
-                () -> guestListService.inviteGuest(testEventId, testUserId, testInvitedByUserId, null, null));
+                () -> guestListService.inviteGuest(testEventId, testUserId, organizationId));
     }
 
     @Test
@@ -149,7 +145,7 @@ class GuestListServiceTest {
         when(guestListRepository.existsByEventIdAndUserId(testEventId, testUserId)).thenReturn(true);
 
         assertThrows(RuntimeException.class,
-                () -> guestListService.inviteGuest(testEventId, testUserId, testInvitedByUserId, null, null));
+                () -> guestListService.inviteGuest(testEventId, testUserId, organizationId));
 
         verify(guestListRepository, never()).save(any());
     }
@@ -159,32 +155,10 @@ class GuestListServiceTest {
         when(guestListRepository.findByEventIdAndUserId(testEventId, testUserId))
                 .thenReturn(Optional.of(testGuest));
 
-        guestListService.removeGuest(testEventId, testUserId, testInvitedByUserId);
+        guestListService.removeGuest(testEventId, testUserId);
 
         verify(guestListRepository).delete(testGuest);
-        verify(kafkaProducer).sendMessage(eq("guest-removed"), contains("\"removedBy\""));
-    }
-
-    @Test
-    void testUpdateGuestRole() {
-        when(guestListRepository.findByEventIdAndUserId(testEventId, testUserId))
-                .thenReturn(Optional.of(testGuest));
-        when(guestListRepository.save(any(GuestList.class))).thenReturn(testGuest);
-
-        GuestList result = guestListService.updateGuestRole(testEventId, testUserId, GuestList.GuestRole.VIP);
-
-        assertEquals(GuestList.GuestRole.VIP, result.getRole());
-    }
-
-    @Test
-    void testUpdateGuestNotes() {
-        when(guestListRepository.findByEventIdAndUserId(testEventId, testUserId))
-                .thenReturn(Optional.of(testGuest));
-        when(guestListRepository.save(any(GuestList.class))).thenReturn(testGuest);
-
-        GuestList result = guestListService.updateGuestNotes(testEventId, testUserId, "Updated note");
-
-        assertEquals("Updated note", result.getNotes());
+        verify(kafkaProducer).sendMessage(eq("guest-removed"), contains("\"eventId\":"));
     }
 
     @Test
@@ -195,15 +169,14 @@ class GuestListServiceTest {
     }
 
     @Test
-    void testGetGuestsByRole() {
-        testGuest.setRole(GuestList.GuestRole.SPEAKER);
-
-        when(guestListRepository.findByEventIdAndRole(testEventId, GuestList.GuestRole.SPEAKER))
+    void testGetGuestsByOrganization() {
+        when(guestListRepository.findByOrganizationId(organizationId))
                 .thenReturn(List.of(testGuest));
 
-        List<GuestList> result = guestListService.getGuestsByRole(testEventId, GuestList.GuestRole.SPEAKER);
+        List<GuestList> result = guestListService.getGuestsByOrganization(organizationId);
 
         assertEquals(1, result.size());
-        assertEquals(GuestList.GuestRole.SPEAKER, result.get(0).getRole());
+        assertEquals(organizationId, result.get(0).getOrganizationId());
+        verify(guestListRepository).findByOrganizationId(organizationId);
     }
 }
