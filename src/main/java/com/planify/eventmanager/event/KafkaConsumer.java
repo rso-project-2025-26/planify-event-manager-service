@@ -10,6 +10,8 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
+
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -39,7 +41,7 @@ public class KafkaConsumer {
     public void consumeRsvpAccepted(String message) {
         try {
             JsonNode json = objectMapper.readTree(message);
-            Long eventId = json.get("eventId").asLong();
+            UUID eventId = UUID.fromString(json.get("eventId").asText());
             
             // Increment attendee count
             updateAttendeeCount(eventId, 1);
@@ -55,7 +57,7 @@ public class KafkaConsumer {
     public void consumeRsvpDeclined(String message) {
         try {
             JsonNode json = objectMapper.readTree(message);
-            Long eventId = json.get("eventId").asLong();
+            UUID eventId = UUID.fromString(json.get("eventId").asText());
             boolean wasAccepted = json.has("wasAccepted") && json.get("wasAccepted").asBoolean();
             
             // Only decrement if user previously accepted
@@ -71,7 +73,7 @@ public class KafkaConsumer {
     }
     
     // Helper method to update attendee count
-    private void updateAttendeeCount(Long eventId, int delta) {
+    private void updateAttendeeCount(UUID eventId, int delta) {
         Event event = eventRepository.findById(eventId).orElse(null);
         if (event != null) {
             int newCount = Math.max(0, event.getCurrentAttendees() + delta);
