@@ -40,6 +40,13 @@ public class Event {
     @Column(name = "location_name", length = 500)
     private String locationName;
 
+    // Booking linkage (booking-service)
+    @Column(name = "booking_id")
+    private UUID bookingId;
+
+    @Column(name = "booking_status", length = 50)
+    private String bookingStatus;
+
     @Column(name = "organization_id", nullable = false)
     private UUID organizationId;
 

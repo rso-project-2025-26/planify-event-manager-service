@@ -66,3 +66,8 @@ logging:
   level:
     com.planify: DEBUG
     org.springframework.web: INFO
+
+booking:
+  grpc:
+    host: ${BOOKING_GRPC_HOST:localhost}
+    port: ${BOOKING_GRPC_PORT:9095}

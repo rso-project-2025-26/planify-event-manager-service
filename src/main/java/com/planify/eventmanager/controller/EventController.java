@@ -19,7 +19,6 @@ import java.util.UUID;
 
 @Slf4j
 @RestController
-@CrossOrigin(origins = "http://localhost:4200")
 @RequestMapping("/api/events")
 @RequiredArgsConstructor
 @Tag(name = "Events", description = "Event management operations")
@@ -77,8 +76,10 @@ public class EventController {
             log.error("User is not authorized to create events in this organization.");
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+        Event eventSaved = eventService.createEvent(event);
+        eventService.reserveLocation(eventSaved.getId());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(eventService.createEvent(event));
+                .body(eventSaved);
     }
 
     @PutMapping("/{id}")
@@ -101,7 +102,9 @@ public class EventController {
             log.error("User is not authorized to update events in this organization.");
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        return ResponseEntity.ok(eventService.updateEvent(id, event));
+        Event eventUpdated = eventService.updateEvent(id, event);
+        eventService.reserveLocation(eventUpdated.getId());
+        return ResponseEntity.ok(eventUpdated);
     }
 
     @DeleteMapping("/{id}")

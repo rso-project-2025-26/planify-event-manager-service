@@ -42,9 +42,9 @@ public class SecurityConfig {
                         ).permitAll()
                         // Actuator health/info open
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        // Public events endpoint
-                        .requestMatchers(HttpMethod.GET, "/api/events/**").permitAll()
-                        // Vsi ostali endpointi
+                        // Public events endpoints - allow anonymous access
+                        .requestMatchers("/api/events/**").permitAll()
+                        // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )
                 // Omogočimo JWT autentikacijo

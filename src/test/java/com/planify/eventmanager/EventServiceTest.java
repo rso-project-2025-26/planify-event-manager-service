@@ -1,5 +1,7 @@
 package com.planify.eventmanager.service;
 
+import com.planify.booking_service.grpc.CheckAvailabilityResponse;
+import com.planify.eventmanager.booking.BookingClient;
 import com.planify.eventmanager.event.KafkaProducer;
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.repository.EventRepository;
@@ -25,6 +27,9 @@ class EventServiceTest {
 
     @Mock
     private KafkaProducer kafkaProducer;
+
+    @Mock
+    private BookingClient bookingClient;
 
     @InjectMocks
     private EventService eventService;
