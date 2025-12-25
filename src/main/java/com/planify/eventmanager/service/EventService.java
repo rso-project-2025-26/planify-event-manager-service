@@ -79,6 +79,17 @@ public class EventService {
     @Transactional
     public void deleteEvent(UUID id) {
         Event event = getEventById(id);
+
+        if (event.getBookingId() != null) {
+            try {
+                log.info("Canceling booking {} for event {}", event.getBookingId(), id);
+                var cancel = bookingClient.cancelBooking(event.getBookingId());
+                event.setBookingStatus(cancel.getStatus());
+            } catch (Exception ex) {
+                log.error("Failed to cancel booking {} for event {}: {}", event.getBookingId(), id, ex.getMessage());
+            }
+        }
+
         eventRepository.delete(event);
         
         // Publish delete event to Kafka
