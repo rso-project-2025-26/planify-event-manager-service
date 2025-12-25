@@ -42,6 +42,7 @@ config:
     username: "planify"
   kafka:
     bootstrapServers: "kafka-service:9092"
+    topicEventAttendanceAccepted: "event-attendance-accepted"
 
 secrets:
   postgresSecretName: postgres-secret

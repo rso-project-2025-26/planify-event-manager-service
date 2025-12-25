@@ -56,6 +56,10 @@ management:
       prometheus:
         enabled: true
 
+kafka:
+  topic:
+    event-attendance-accepted: ${KAFKA_TOPIC_EVENT_ATTENDANCE_ACCEPTED:event-attendance-accepted}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

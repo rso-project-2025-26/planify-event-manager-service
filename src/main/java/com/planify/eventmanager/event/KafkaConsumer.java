@@ -1,15 +1,20 @@
 package com.planify.eventmanager.event;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.repository.EventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.Environment;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -19,7 +24,9 @@ public class KafkaConsumer {
     
     private final EventRepository eventRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    
+    private final KafkaProducer kafkaProducer;
+    private final Environment environment;
+
     @KafkaListener(topics = "event-created", groupId = "${spring.application.name}")
     public void consumeEventCreated(String message) {
         log.info("Consumed message from event-created: {}", message);
@@ -42,10 +49,39 @@ public class KafkaConsumer {
         try {
             JsonNode json = objectMapper.readTree(message);
             UUID eventId = UUID.fromString(json.get("eventId").asText());
-            
+            Event event = eventRepository.findById(eventId).orElse(null);
             // Increment attendee count
             updateAttendeeCount(eventId, 1);
-            
+
+            UUID userId = UUID.fromString(json.get("userId").asText());
+            // LocalDateTime -> OffsetDateTime -> String (ISO-8601) to avoid JSR-310 module dependency
+            ZoneOffset zoneOffset = ZoneOffset.UTC;
+            String rsvpDateStr = null;
+            if (event != null && event.getEventDate() != null) {
+                OffsetDateTime rsvpDate = event.getEventDate().atOffset(zoneOffset);
+                rsvpDateStr = rsvpDate.toString();
+            }
+
+            String topic = environment.getProperty("kafka.topic.event-attendance-accepted");
+            if (topic == null || topic.isBlank()) {
+                log.warn("Kafka topic '{}' is missing or blank.", "kafka.topic.event-attendance-accepted");
+                return;
+            }
+
+            Map<String, Object> payload = Map.of(
+                    "eventId", eventId,
+                    "eventTitle", event != null ? event.getTitle() : null,
+                    "eventStartAt", rsvpDateStr,
+                    "userId", userId
+            );
+
+            try {
+                String newMessage = objectMapper.writeValueAsString(payload);
+                kafkaProducer.sendMessage(topic, newMessage);
+                log.info("Sent EventAttendanceAccepted to topic {}", topic);
+            } catch (JsonProcessingException e) {
+                log.error("Failed to serialize EventAttendanceAccepted payload: {}", e.getMessage(), e);
+            }
             log.info("RSVP accepted - incremented attendee count for event: {}", eventId);
         } catch (Exception e) {
             log.error("Error processing rsvp-accepted: {}", e.getMessage());
