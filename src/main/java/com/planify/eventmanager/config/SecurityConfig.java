@@ -40,8 +40,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
-                        // Actuator health/info open
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        // Actuator open
+                        .requestMatchers("/actuator/**").permitAll()
                         // Public events endpoints - allow anonymous access
                         .requestMatchers("/api/events/**").permitAll()
                         // All other endpoints require authentication

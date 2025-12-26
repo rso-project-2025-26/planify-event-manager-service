@@ -191,7 +191,7 @@
 					<user>planify</user>
 					<password>planify</password>
 					<schemas>
-						<schema>event-manager</schema>
+						<schema>event_manager</schema>
 					</schemas>
 				</configuration>
 			</plugin>
