@@ -24,13 +24,13 @@ resources:
 probes:
   liveness:
     path: /actuator/health
-    initialDelaySeconds: 60
+    initialDelaySeconds: 150
     periodSeconds: 10
     timeoutSeconds: 3
     failureThreshold: 3
   readiness:
     path: /actuator/health
-    initialDelaySeconds: 30
+    initialDelaySeconds: 100
     periodSeconds: 5
     timeoutSeconds: 3
     failureThreshold: 3
