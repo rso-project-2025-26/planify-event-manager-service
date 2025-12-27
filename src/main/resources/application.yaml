@@ -5,9 +5,9 @@ spring:
   application:
     name: event-manager-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/planify
-    username: planify
-    password: planify
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/planify}
+    username: ${SPRING_DATASOURCE_USERNAME:planify}
+    password: ${SPRING_DATASOURCE_PASSWORD:planify}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -18,7 +18,7 @@ spring:
         default_schema: event_manager
     show-sql: false
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: ${spring.application.name}
       auto-offset-reset: earliest
