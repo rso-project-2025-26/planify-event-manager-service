@@ -15,22 +15,22 @@ service:
 
 resources:
   requests:
-    memory: "512Mi"
-    cpu: "250m"
+    cpu: 100m
+    memory: 512Mi
   limits:
-    memory: "1Gi"
-    cpu: "500m"
+    cpu: 250m
+    memory: 1Gi
 
 probes:
   liveness:
     path: /actuator/health
-    initialDelaySeconds: 60
+    initialDelaySeconds: 150
     periodSeconds: 10
     timeoutSeconds: 3
     failureThreshold: 3
   readiness:
     path: /actuator/health
-    initialDelaySeconds: 30
+    initialDelaySeconds: 100
     periodSeconds: 5
     timeoutSeconds: 3
     failureThreshold: 3
@@ -42,6 +42,13 @@ config:
     username: "planify"
   kafka:
     bootstrapServers: "kafka-service:9092"
+    topicEventAttendanceAccepted: "event-attendance-accepted"
+  oauth2:
+    issuerUri: "http://keycloak-service:8080/realms/planify"
+    jwkSetUri: "http://keycloak-service:8080/realms/planify/protocol/openid-connect/certs"
+  booking:
+    grpcHost: "booking-service"
+    grpcPort: "9095"
 
 secrets:
   postgresSecretName: postgres-secret

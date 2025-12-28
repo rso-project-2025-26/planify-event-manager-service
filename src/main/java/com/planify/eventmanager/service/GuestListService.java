@@ -27,7 +27,7 @@ public class GuestListService {
     private final KafkaProducer kafkaProducer;
     
     // Get all guests for an event
-    public List<GuestList> getAllGuestsForEvent(Long eventId) {
+    public List<GuestList> getAllGuestsForEvent(UUID eventId) {
         return guestListRepository.findByEventId(eventId);
     }
     
@@ -37,14 +37,14 @@ public class GuestListService {
     }
     
     // Get specific guest entry
-    public GuestList getGuestEntry(Long eventId, UUID userId) {
+    public GuestList getGuestEntry(UUID eventId, UUID userId) {
         return guestListRepository.findByEventIdAndUserId(eventId, userId)
             .orElseThrow(() -> new RuntimeException("Guest not found for event: " + eventId + " and user: " + userId));
     }
     
     // Invite guest to event (organizer action)
     @Transactional
-    public GuestList inviteGuest(Long eventId, UUID userId, UUID invitedByUserId, GuestList.GuestRole role, String notes) {
+    public GuestList inviteGuest(UUID eventId, UUID userId, UUID organizationId) {
         // Check if event exists
         Event event = eventRepository.findById(eventId)
             .orElseThrow(() -> new RuntimeException("Event not found: " + eventId));
@@ -57,18 +57,16 @@ public class GuestListService {
         GuestList guestList = GuestList.builder()
             .eventId(eventId)
             .userId(userId)
-            .role(role != null ? role : GuestList.GuestRole.ATTENDEE)
-            .invitedByUserId(invitedByUserId)
-            .notes(notes)
+            .organizationId(organizationId)
             .build();
         
         GuestList saved = guestListRepository.save(guestList);
         
         // Publish Kafka event for guest-service to create invitation
         Map<String, Object> payload = Map.of(
-            "eventId", eventId,
+            "eventId", eventId.toString(),
             "userId", userId.toString(),
-            "invitedBy", invitedByUserId.toString(),
+            "organizationId", organizationId.toString(),
             "invitedAt", LocalDateTime.now().toString()
         );
 
@@ -80,21 +78,20 @@ public class GuestListService {
             log.error("Failed to serialize guest-invited payload for user {} in event {}: {}", userId, eventId, e.getMessage(), e);
         }
         
-        log.info("Invited user {} to event {} by user {}", userId, eventId, invitedByUserId);
+        log.info("Invited user {} to event {} in organization {}", userId, eventId, organizationId);
         return saved;
     }
     
     // Remove guest from event (organizer action)
     @Transactional
-    public void removeGuest(Long eventId, UUID userId, UUID removedByUserId) {
+    public void removeGuest(UUID eventId, UUID userId) {
         GuestList guest = getGuestEntry(eventId, userId);
         guestListRepository.delete(guest);
         
         // Publish Kafka event for guest-service to remove invitation
         Map<String, Object> payload = Map.of(
-            "eventId", eventId,
+            "eventId", eventId.toString(),
             "userId", userId.toString(),
-            "removedBy", removedByUserId.toString(),
             "removedAt", LocalDateTime.now().toString()
         );
 
@@ -106,37 +103,15 @@ public class GuestListService {
             log.error("Failed to serialize guest-removed payload for user {} in event {}: {}", userId, eventId, e.getMessage(), e);
         }
         
-        log.info("Removed user {} from event {} by user {}", userId, eventId, removedByUserId);
-    }
-    
-    // Update guest role (organizer action)
-    @Transactional
-    public GuestList updateGuestRole(Long eventId, UUID userId, GuestList.GuestRole newRole) {
-        GuestList guest = getGuestEntry(eventId, userId);
-        guest.setRole(newRole);
-        GuestList updated = guestListRepository.save(guest);
-        
-        log.info("Updated role for user {} in event {} to {}", userId, eventId, newRole);
-        return updated;
-    }
-    
-    // Update guest notes (organizer action)
-    @Transactional
-    public GuestList updateGuestNotes(Long eventId, UUID userId, String notes) {
-        GuestList guest = getGuestEntry(eventId, userId);
-        guest.setNotes(notes);
-        GuestList updated = guestListRepository.save(guest);
-        
-        log.info("Updated notes for user {} in event {}", userId, eventId);
-        return updated;
+        log.info("Removed user {} from event {}", userId, eventId);
     }
     
     // Query operations
-    public List<GuestList> getGuestsByRole(Long eventId, GuestList.GuestRole role) {
-        return guestListRepository.findByEventIdAndRole(eventId, role);
+    public boolean isUserInvited(UUID eventId, UUID userId) {
+        return guestListRepository.existsByEventIdAndUserId(eventId, userId);
     }
     
-    public boolean isUserInvited(Long eventId, UUID userId) {
-        return guestListRepository.existsByEventIdAndUserId(eventId, userId);
+    public List<GuestList> getGuestsByOrganization(UUID organizationId) {
+        return guestListRepository.findByOrganizationId(organizationId);
     }
 }

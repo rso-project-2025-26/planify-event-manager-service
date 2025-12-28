@@ -1,13 +1,13 @@
 -- Events table
 CREATE TABLE events (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
     description TEXT,
     event_date TIMESTAMP NOT NULL,
     end_date TIMESTAMP,
     
     -- Location reference
-    location_id BIGINT,
+    location_id UUID,
     location_name VARCHAR(500),
     
     organizer_id UUID NOT NULL,
@@ -35,16 +35,13 @@ COMMENT ON COLUMN events.location_id IS 'References locations table in booking-s
 COMMENT ON COLUMN events.organizer_id IS 'References users table in user-service';
 COMMENT ON COLUMN events.event_type IS 'PUBLIC events visible to all, PRIVATE only to invited guests';
 
--- Guest list table
+-- Guest list table (organizer perspective)
 CREATE TABLE guest_list (
-    id BIGSERIAL PRIMARY KEY,
-    event_id BIGINT NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id UUID NOT NULL,
     user_id UUID NOT NULL,
+    organization_id UUID NOT NULL,
     
-    -- Organizer's data
-    role VARCHAR(50) DEFAULT 'ATTENDEE',
-    notes TEXT,
-    invited_by_user_id UUID,
     invited_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     
     -- Foreign key constraint
@@ -55,9 +52,7 @@ CREATE TABLE guest_list (
 
 CREATE INDEX idx_guest_list_event ON guest_list(event_id);
 CREATE INDEX idx_guest_list_user ON guest_list(user_id);
-CREATE INDEX idx_guest_list_role ON guest_list(role);
+CREATE INDEX idx_guest_list_organization ON guest_list(organization_id);
 
 COMMENT ON TABLE guest_list IS 'Guests invited to events by organizers (organizer perspective)';
-COMMENT ON COLUMN guest_list.role IS 'Guest role: ATTENDEE, SPEAKER, VIP, STAFF';
-COMMENT ON COLUMN guest_list.notes IS 'Organizer notes about this guest';
-COMMENT ON COLUMN guest_list.invited_by_user_id IS 'User ID who sent the invitation';
+COMMENT ON COLUMN guest_list.organization_id IS 'Organization ID for permission checks';

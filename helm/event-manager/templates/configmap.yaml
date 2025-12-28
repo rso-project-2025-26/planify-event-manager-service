@@ -5,4 +5,8 @@ metadata:
 data:
   SPRING_DATASOURCE_URL: {{ .Values.config.database.url | quote }}
   SPRING_DATASOURCE_USERNAME: {{ .Values.config.database.username | quote }}
-  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.config.kafka.bootstrapServers | quote }}
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: {{ .Values.config.kafka.bootstrapServers | quote }}
+  OAUTH2_ISSUER_URI: {{ .Values.config.oauth2.issuerUri | quote }}
+  OAUTH2_JWK_SET_URI: {{ .Values.config.oauth2.jwkSetUri | quote }}
+  BOOKING_GRPC_HOST: {{ .Values.config.booking.grpcHost | quote }}
+  BOOKING_GRPC_PORT: {{ .Values.config.booking.grpcPort | quote }}

@@ -44,11 +44,31 @@ spec:
             secretKeyRef:
               name: {{ .Values.secrets.postgresSecretName }}
               key: {{ .Values.secrets.postgresPasswordKey }}
-        - name: KAFKA_BOOTSTRAP_SERVERS
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
           valueFrom:
             configMapKeyRef:
               name: event-manager-config
-              key: KAFKA_BOOTSTRAP_SERVERS
+              key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+        - name: OAUTH2_ISSUER_URI
+          valueFrom:
+            configMapKeyRef:
+              name: event-manager-config
+              key: OAUTH2_ISSUER_URI
+        - name: OAUTH2_JWK_SET_URI
+          valueFrom:
+            configMapKeyRef:
+              name: event-manager-config
+              key: OAUTH2_JWK_SET_URI
+        - name: BOOKING_GRPC_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: event-manager-config
+              key: BOOKING_GRPC_HOST
+        - name: BOOKING_GRPC_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: event-manager-config
+              key: BOOKING_GRPC_PORT
         resources:
           requests:
             memory: {{ .Values.resources.requests.memory | quote }}

@@ -1,16 +1,22 @@
 package com.planify.eventmanager.service;
 
+import com.planify.booking_service.grpc.CancelBookingResponse;
+import com.planify.eventmanager.booking.BookingClient;
+import com.planify.booking_service.grpc.CheckAvailabilityResponse;
+import com.planify.booking_service.grpc.CreateBookingResponse;
 import com.planify.eventmanager.event.KafkaProducer;
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.repository.EventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import java.util.Map;
@@ -22,13 +28,14 @@ public class EventService {
     
     private final EventRepository eventRepository;
     private final KafkaProducer kafkaProducer;
-    
+    private final BookingClient bookingClient;
+
     // CRUD Operations    
     public List<Event> getAllEvents() {
         return eventRepository.findAll();
     }
     
-    public Event getEventById(Long id) {
+    public Event getEventById(UUID id) {
         return eventRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Event not found with id: " + id));
     }
@@ -39,14 +46,14 @@ public class EventService {
         
         // Publish event to Kafka
         kafkaProducer.sendMessage("event-created", 
-            String.format("Event created: %s (ID: %d)", savedEvent.getTitle(), savedEvent.getId()));
+            String.format("Event created: %s (ID: %s)", savedEvent.getTitle(), savedEvent.getId()));
         
         log.info("Created new event: {}", savedEvent.getId());
         return savedEvent;
     }
     
     @Transactional
-    public Event updateEvent(Long id, Event eventDetails) {
+    public Event updateEvent(UUID id, Event eventDetails) {
         Event event = getEventById(id);
         
         event.setTitle(eventDetails.getTitle());
@@ -63,20 +70,31 @@ public class EventService {
         
         // Publish update event to Kafka
         kafkaProducer.sendMessage("event-updated", 
-            String.format("Event updated: %s (ID: %d)", updatedEvent.getTitle(), updatedEvent.getId()));
+            String.format("Event updated: %s (ID: %s)", updatedEvent.getTitle(), updatedEvent.getId()));
         
         log.info("Updated event: {}", updatedEvent.getId());
         return updatedEvent;
     }
     
     @Transactional
-    public void deleteEvent(Long id) {
+    public void deleteEvent(UUID id) {
         Event event = getEventById(id);
+
+        if (event.getBookingId() != null) {
+            try {
+                log.info("Canceling booking {} for event {}", event.getBookingId(), id);
+                var cancel = bookingClient.cancelBooking(event.getBookingId());
+                event.setBookingStatus(cancel.getStatus());
+            } catch (Exception ex) {
+                log.error("Failed to cancel booking {} for event {}: {}", event.getBookingId(), id, ex.getMessage());
+            }
+        }
+
         eventRepository.delete(event);
         
         // Publish delete event to Kafka
         Map<String, Object> payload = Map.of(
-            "eventId", id,
+            "eventId", id.toString(),
             "deletedAt", LocalDateTime.now().toString()
         );
 
@@ -116,33 +134,86 @@ public class EventService {
         return eventRepository.findByEventDateBetween(start, end);
     }
     
-    public List<Event> getEventsByLocation(Long locationId) {
+    public List<Event> getEventsByLocation(UUID locationId) {
         return eventRepository.findByLocationId(locationId);
     }
     
-    // Status Management    
+    // Reservira lokacijo
     @Transactional
-    public Event publishEvent(Long id) {
+    public void reserveLocation(UUID id) {
+        Event event = getEventById(id);
+
+        if (event.getBookingId() != null) {
+            log.info("Canceling existing booking for event {}", id);
+            CancelBookingResponse cancel = bookingClient.cancelBooking(event.getBookingId());
+        }
+
+        if (event.getLocationId() != null && event.getEventDate() != null && event.getEndDate() != null) {
+            long startMs = event.getEventDate().atOffset(ZoneOffset.UTC).toInstant().toEpochMilli();
+            long endMs = event.getEndDate().atOffset(ZoneOffset.UTC).toInstant().toEpochMilli();
+
+            CheckAvailabilityResponse availability = bookingClient.checkAvailability(
+                    event.getLocationId(), startMs, endMs);
+            if (!availability.getAvailable()) {
+                log.warn("Location is not available for the selected time interval");
+                throw new org.springframework.web.server.ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Location is not available for the selected time interval");
+            }
+
+            CreateBookingResponse create = bookingClient.createBooking(
+                    event.getLocationId(),
+                    event.getId(),
+                    event.getOrganizationId().toString(),
+                    startMs,
+                    endMs,
+                    "EUR",
+                    null
+            );
+
+            event.setBookingId(UUID.fromString(create.getBookingId()));
+            event.setBookingStatus(create.getStatus());
+
+            eventRepository.save(event);
+            log.info("Created booking for event {}", id);
+        }
+    }
+
+    @Transactional
+    public Event publishEvent(UUID id) {
         Event event = getEventById(id);
         event.setStatus(Event.EventStatus.PUBLISHED);
         Event published = eventRepository.save(event);
         
         kafkaProducer.sendMessage("event-published", 
-            String.format("Event published: %s (ID: %d)", published.getTitle(), published.getId()));
+            String.format("Event published: %s (ID: %s)", published.getTitle(), published.getId()));
         
         log.info("Published event: {}", id);
         return published;
     }
     
     @Transactional
-    public Event cancelEvent(Long id) {
+    public Event cancelEvent(UUID id) {
         Event event = getEventById(id);
+
+        // If there is a booking, cancel it first
+        if (event.getBookingId() != null) {
+            try {
+                log.info("Canceling booking {} for event {}", event.getBookingId(), id);
+                var cancel = bookingClient.cancelBooking(event.getBookingId());
+                event.setBookingStatus(cancel.getStatus());
+            } catch (Exception ex) {
+                log.error("Failed to cancel booking {} for event {}: {}", event.getBookingId(), id, ex.getMessage());
+                // proceed with event cancel to avoid blocking organizer
+            }
+        }
+
         event.setStatus(Event.EventStatus.CANCELLED);
         Event cancelled = eventRepository.save(event);
         
         // Publish cancel event to Kafka
         Map<String, Object> payload = Map.of(
-            "eventId", id,
+            "eventId", id.toString(),
             "cancelledAt", LocalDateTime.now().toString()
         );
 
@@ -159,7 +230,7 @@ public class EventService {
     }
     
     @Transactional
-    public Event completeEvent(Long id) {
+    public Event completeEvent(UUID id) {
         Event event = getEventById(id);
         event.setStatus(Event.EventStatus.COMPLETED);
         Event completed = eventRepository.save(event);

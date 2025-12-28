@@ -123,4 +123,4 @@ jobs:
             --set image.tag=${IMAGE_TAG} \
             --create-namespace \
             --wait \
-            --timeout=5m
+            --timeout=8m

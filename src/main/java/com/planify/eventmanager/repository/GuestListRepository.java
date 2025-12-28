@@ -9,23 +9,23 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface GuestListRepository extends JpaRepository<GuestList, Long> {
+public interface GuestListRepository extends JpaRepository<GuestList, UUID> {
     
     // Find all guests for an event
-    List<GuestList> findByEventId(Long eventId);
+    List<GuestList> findByEventId(UUID eventId);
     
     // Find all events a user is invited to
     List<GuestList> findByUserId(UUID userId);
     
+    // Find by organization
+    List<GuestList> findByOrganizationId(UUID organizationId);
+    
     // Find specific guest entry
-    Optional<GuestList> findByEventIdAndUserId(Long eventId, UUID userId);
+    Optional<GuestList> findByEventIdAndUserId(UUID eventId, UUID userId);
     
     // Check if user is invited to event
-    boolean existsByEventIdAndUserId(Long eventId, UUID userId);
-    
-    // Find by role
-    List<GuestList> findByEventIdAndRole(Long eventId, GuestList.GuestRole role);
+    boolean existsByEventIdAndUserId(UUID eventId, UUID userId);
     
     // Delete all guests for an event (used when event is deleted)
-    void deleteByEventId(Long eventId);
+    void deleteByEventId(UUID eventId);
 }

@@ -10,9 +10,9 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface EventRepository extends JpaRepository<Event, Long> {
+public interface EventRepository extends JpaRepository<Event, UUID> {
     
-    // Find by organizer
+    // Find by organization
     List<Event> findByOrganizationId(UUID organizationId);
     
     // Find by status
@@ -36,8 +36,8 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     List<Event> findPastEvents(LocalDateTime now);
     
     // Find events by location
-    List<Event> findByLocationId(Long locationId);
+    List<Event> findByLocationId(UUID locationId);
     
-    // Find events by organizer and status
+    // Find events by organization and status
     List<Event> findByOrganizationIdAndStatus(UUID organizationId, Event.EventStatus status);
 }
