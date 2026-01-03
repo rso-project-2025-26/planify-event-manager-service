@@ -29,46 +29,11 @@ spec:
         env:
         - name: SPRING_PROFILES_ACTIVE
           value: {{ .Values.config.springProfilesActive | quote }}
-        - name: SPRING_DATASOURCE_URL
-          valueFrom:
-            configMapKeyRef:
-              name: event-manager-config
-              key: SPRING_DATASOURCE_URL
-        - name: SPRING_DATASOURCE_USERNAME
-          valueFrom:
-            configMapKeyRef:
-              name: event-manager-config
-              key: SPRING_DATASOURCE_USERNAME
-        - name: SPRING_DATASOURCE_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.secrets.postgresSecretName }}
-              key: {{ .Values.secrets.postgresPasswordKey }}
-        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
-          valueFrom:
-            configMapKeyRef:
-              name: event-manager-config
-              key: SPRING_KAFKA_BOOTSTRAP_SERVERS
-        - name: OAUTH2_ISSUER_URI
-          valueFrom:
-            configMapKeyRef:
-              name: event-manager-config
-              key: OAUTH2_ISSUER_URI
-        - name: OAUTH2_JWK_SET_URI
-          valueFrom:
-            configMapKeyRef:
-              name: event-manager-config
-              key: OAUTH2_JWK_SET_URI
-        - name: BOOKING_GRPC_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: event-manager-config
-              key: BOOKING_GRPC_HOST
-        - name: BOOKING_GRPC_PORT
-          valueFrom:
-            configMapKeyRef:
-              name: event-manager-config
-              key: BOOKING_GRPC_PORT
+        envFrom:
+        - configMapRef:
+            name: event-manager-config
+        - secretRef:
+            name: {{ .Values.secrets.postgresSecretName }}
         resources:
           requests:
             memory: {{ .Values.resources.requests.memory | quote }}

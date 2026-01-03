@@ -16,7 +16,7 @@ spring:
       hibernate:
         format_sql: true
         default_schema: event_manager
-    show-sql: false
+    show-sql: ${JPA_SHOW_SQL:false}
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -29,9 +29,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # Preferred: issuer URI so Spring can auto-configure JwtDecoder
           issuer-uri: ${OAUTH2_ISSUER_URI:http://localhost:9080/realms/planify}
-          # Fallback: direct JWK Set URI (kept for flexibility). Must match your Keycloak host/port.
           jwk-set-uri: ${OAUTH2_JWK_SET_URI:http://localhost:9080/realms/planify/protocol/openid-connect/certs}
   flyway:
     enabled: true
@@ -45,7 +43,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus,info,metrics
+        include: ${MANAGEMENT_ENDPOINTS_INCLUDE:health,prometheus,info,metrics}
   endpoint:
     health:
       show-details: always
@@ -68,8 +66,8 @@ springdoc:
 
 logging:
   level:
-    com.planify: DEBUG
-    org.springframework.web: INFO
+    com.planify: ${LOG_LEVEL_APP:DEBUG}
+    org.springframework.web: ${LOG_LEVEL_SPRING_WEB:INFO}
 
 booking:
   grpc:

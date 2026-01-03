@@ -49,6 +49,14 @@ config:
   booking:
     grpcHost: "booking-service"
     grpcPort: "9095"
+  
+  jpa:
+    showSql: "false"
+  management:
+    endpointsInclude: "health,prometheus,info,metrics"
+  logging:
+    levelApp: "INFO"
+    levelSpringWeb: "WARN"
 
 secrets:
   postgresSecretName: postgres-secret

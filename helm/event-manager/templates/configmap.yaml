@@ -10,3 +10,7 @@ data:
   OAUTH2_JWK_SET_URI: {{ .Values.config.oauth2.jwkSetUri | quote }}
   BOOKING_GRPC_HOST: {{ .Values.config.booking.grpcHost | quote }}
   BOOKING_GRPC_PORT: {{ .Values.config.booking.grpcPort | quote }}
+  JPA_SHOW_SQL: {{ .Values.config.jpa.showSql | quote }}
+  MANAGEMENT_ENDPOINTS_INCLUDE: {{ .Values.config.management.endpointsInclude | quote }}
+  LOG_LEVEL_APP: {{ .Values.config.logging.levelApp | quote }}
+  LOG_LEVEL_SPRING_WEB: {{ .Values.config.logging.levelSpringWeb | quote }}
