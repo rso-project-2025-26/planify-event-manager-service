@@ -9,11 +9,3 @@ config:
     levelSpringWeb: "INFO"
 
 replicaCount: 1
-
-resources:
-  requests:
-    cpu: 100m
-    memory: 256Mi
-  limits:
-    cpu: 150m
-    memory: 512Mi
