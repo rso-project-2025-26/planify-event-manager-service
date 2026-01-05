@@ -68,131 +68,63 @@ All endpoints require `Authorization: Bearer <JWT_TOKEN>` header unless otherwis
 
 ### Events (`/api/events`)
 
-**GET** `/api/events` — List all events (ADMINISTRATOR only)
-```bash
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8081/api/events
-```
-
-**GET** `/api/events/{id}` — Get event details by ID
-```bash
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000
-```
-
-**POST** `/api/events` — Create new event (ORG_ADMIN or ORGANISER)
-```bash
-curl -X POST \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Annual Conference 2024",
-    "description": "Company annual conference",
-    "eventDate": "2024-12-15T10:00:00",
-    "endDate": "2024-12-15T18:00:00",
-    "locationId": "660e8400-e29b-41d4-a716-446655440001",
-    "organizationId": "880e8400-e29b-41d4-a716-446655440003",
-    "organizerId": "990e8400-e29b-41d4-a716-446655440004",
-    "maxAttendees": 100,
-    "eventType": "PRIVATE",
-    "status": "DRAFT"
-  }' \
-  http://localhost:8081/api/events
-```
-
-**PUT** `/api/events/{id}` — Update event (ORG_ADMIN or ORGANISER)
-```bash
-curl -X PUT \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Updated Conference Title",
-    "description": "Updated description"
-  }' \
-  http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000
-```
-
-**DELETE** `/api/events/{id}` — Delete event (ORG_ADMIN or ORGANISER)
-```bash
-curl -X DELETE \
-  -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000
-```
+- `GET /api/events` — List all events (ADMINISTRATOR only)
+- `GET /api/events/{id}` — Get event details by ID
+- `POST /api/events` — Create new event (ORG_ADMIN or ORGANISER)
+- `PUT /api/events/{id}` — Update event (ORG_ADMIN or ORGANISER)
+- `DELETE /api/events/{id}` — Delete event (ORG_ADMIN or ORGANISER)
 
 ### Query Operations
 
-**GET** `/api/events/organization/{organizationId}` — Get events by organization
-```bash
-curl http://localhost:8081/api/events/organization/880e8400-e29b-41d4-a716-446655440003
-```
-
-**GET** `/api/events/status/{status}` — Get events by status (DRAFT, PUBLISHED, CANCELLED, COMPLETED)
-```bash
-curl http://localhost:8081/api/events/status/PUBLISHED
-```
-
-**GET** `/api/events/public` — Get all public events (no auth required)
-```bash
-curl http://localhost:8081/api/events/public
-```
-
-**GET** `/api/events/upcoming` — Get upcoming events
-```bash
-curl http://localhost:8081/api/events/upcoming
-```
-
-**GET** `/api/events/past` — Get past events
-```bash
-curl http://localhost:8081/api/events/past
-```
+- `GET /api/events/organization/{organizationId}` — Get events by organization
+- `GET /api/events/status/{status}` — Get events by status (DRAFT, PUBLISHED, CANCELLED, COMPLETED)
+- `GET /api/events/public` — Get all public events (no auth required)
+- `GET /api/events/upcoming` — Get upcoming events
+- `GET /api/events/past` — Get past events
 
 ### Status Management
 
-**PUT** `/api/events/{id}/publish` — Change event status to PUBLISHED
-```bash
-curl -X PUT \
-  -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000/publish
-```
-
-**PUT** `/api/events/{id}/cancel` — Change event status to CANCELLED
-```bash
-curl -X PUT \
-  -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000/cancel
-```
-
-**PUT** `/api/events/{id}/complete` — Change event status to COMPLETED
-```bash
-curl -X PUT \
-  -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000/complete
-```
+- `PUT /api/events/{id}/publish` — Change event status to PUBLISHED
+- `PUT /api/events/{id}/cancel` — Change event status to CANCELLED
+- `PUT /api/events/{id}/complete` — Change event status to COMPLETED
 
 ### Guest List Management (`/api/events/{eventId}/guests`)
 
-**GET** `/api/events/{eventId}/guests` — Get all guests for an event
+- `GET /api/events/{eventId}/guests` — Get all guests for an event
+- `GET /api/events/{eventId}/guests/{userId}` — Get specific guest entry
+- `POST /api/events/{eventId}/guests/invite?userId={userId}&organizationId={orgId}` — Invite guest to event
+- `DELETE /api/events/{eventId}/guests/{userId}` — Remove guest from event
+
+### Minimal curl examples
+
 ```bash
+# Get event by ID
 curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000/guests
-```
+     "http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000"
 
-**GET** `/api/events/{eventId}/guests/{userId}` — Get specific guest entry
-```bash
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000/guests/990e8400-e29b-41d4-a716-446655440004
-```
+# Create new event
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "title": "Annual Conference 2024",
+       "description": "Company annual conference",
+       "eventDate": "2024-12-15T10:00:00",
+       "endDate": "2024-12-15T18:00:00",
+       "locationId": "660e8400-e29b-41d4-a716-446655440001",
+       "organizationId": "880e8400-e29b-41d4-a716-446655440003",
+       "organizerId": "990e8400-e29b-41d4-a716-446655440004",
+       "maxAttendees": 100,
+       "eventType": "PRIVATE"
+     }' \
+     "http://localhost:8081/api/events"
 
-**POST** `/api/events/{eventId}/guests/invite?userId={userId}&organizationId={orgId}` — Invite guest to event
-```bash
-curl -X POST \
-  -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000/guests/invite?userId=990e8400-e29b-41d4-a716-446655440004&organizationId=880e8400-e29b-41d4-a716-446655440003"
-```
+# Invite guest to event
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+     "http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000/guests/invite?userId=990e8400-e29b-41d4-a716-446655440004&organizationId=880e8400-e29b-41d4-a716-446655440003"
 
-**DELETE** `/api/events/{eventId}/guests/{userId}` — Remove guest from event
-```bash
-curl -X DELETE \
-  -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000/guests/990e8400-e29b-41d4-a716-446655440004
+# Publish event
+curl -X PUT -H "Authorization: Bearer $TOKEN" \
+     "http://localhost:8081/api/events/550e8400-e29b-41d4-a716-446655440000/publish"
 ```
 
 ## Database Structure
