@@ -8,4 +8,7 @@ config:
     levelApp: "DEBUG"
     levelSpringWeb: "INFO"
 
+  swagger:
+    enabled: "true"
+
 replicaCount: 1
