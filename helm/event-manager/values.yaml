@@ -61,9 +61,6 @@ config:
   swagger:
     enabled: "false"
 
-  context:
-    path: "/event-manager-service"
-
 secrets:
   postgresSecretName: postgres-secret
   postgresPasswordKey: POSTGRES_PASSWORD
