@@ -23,13 +23,13 @@ resources:
 
 probes:
   liveness:
-    path: /event-manager-service/actuator/health
+    path: /actuator/health
     initialDelaySeconds: 150
     periodSeconds: 10
     timeoutSeconds: 3
     failureThreshold: 3
   readiness:
-    path: /event-manager-service/actuator/health
+    path: /actuator/health
     initialDelaySeconds: 100
     periodSeconds: 5
     timeoutSeconds: 3
