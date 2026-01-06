@@ -36,6 +36,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Swagger and OpenAPI
                         .requestMatchers(
+                                "/event-manager/v3/api-docs/**",
+                                "/event-manager/api-docs/**",
+                                "/event-manager/swagger-ui/**",
+                                "/event-manager/swagger-ui.html",
                                 "/v3/api-docs/**",
                                 "/api-docs/**",
                                 "/swagger-ui/**",
