@@ -78,6 +78,11 @@ booking:
     host: ${BOOKING_GRPC_HOST:localhost}
     port: ${BOOKING_GRPC_PORT:9095}
 
+# User Service Configuration
+user:
+  service:
+    base-url: ${USER_SERVICE_BASE_URL:http://localhost:8082}
+
 # Resilience4j Configuration for Fault Tolerance
 resilience4j:
   circuitbreaker:

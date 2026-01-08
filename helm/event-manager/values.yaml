@@ -49,6 +49,8 @@ config:
   booking:
     grpcHost: "booking-service"
     grpcPort: "9095"
+  userService:
+    baseUrl: "http://user-service:8082"
   
   jpa:
     showSql: "false"
