@@ -11,6 +11,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.mockito.ArgumentCaptor;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -98,8 +100,10 @@ class EventServiceTest {
         verify(eventRepository).findById(testEventId);
     }
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Test
-    void testCreateEvent() {
+    void testCreateEvent() throws Exception {
         Event newEvent = Event.builder()
                 .title("New Event")
                 .eventDate(LocalDateTime.now().plusDays(5))
@@ -113,12 +117,21 @@ class EventServiceTest {
 
         assertNotNull(result);
         assertEquals(testEventId, result.getId());
-        verify(eventRepository).save(any(Event.class));
-        verify(kafkaProducer).sendMessage(eq("event-created"), contains("Event created"));
+
+        // Capture Kafka message
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(kafkaProducer).sendMessage(eq("event-created"), messageCaptor.capture());
+
+        String kafkaMessage = messageCaptor.getValue();
+        Map<String, Object> payload = objectMapper.readValue(kafkaMessage, Map.class);
+
+        assertEquals(testEventId.toString(), payload.get("eventId"));
+        assertEquals("Test Conference", payload.get("title"));
+        assertEquals("DRAFT", payload.get("status"));
     }
 
     @Test
-    void testUpdateEvent() {
+    void testUpdateEvent() throws Exception {
         UUID newLocationId = UUID.randomUUID();
         Event details = Event.builder()
                 .title("Updated Title")
@@ -137,9 +150,33 @@ class EventServiceTest {
         Event result = eventService.updateEvent(testEventId, details);
 
         assertNotNull(result);
-        verify(eventRepository).findById(testEventId);
-        verify(eventRepository).save(any(Event.class));
-        verify(kafkaProducer).sendMessage(eq("event-updated"), contains("Event updated"));
+
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(kafkaProducer).sendMessage(eq("event-updated"), messageCaptor.capture());
+
+        String kafkaMessage = messageCaptor.getValue();
+        Map<String, Object> payload = objectMapper.readValue(kafkaMessage, Map.class);
+
+        assertEquals(testEventId.toString(), payload.get("eventId"));
+        assertEquals("Updated Title", payload.get("title"));
+        assertEquals("PUBLISHED", payload.get("status"));
+    }
+
+    @Test
+    void testPublishEvent() throws Exception {
+        when(eventRepository.findById(testEventId)).thenReturn(Optional.of(testEvent));
+        when(eventRepository.save(any(Event.class))).thenReturn(testEvent);
+
+        eventService.publishEvent(testEventId);
+
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(kafkaProducer).sendMessage(eq("event-published"), messageCaptor.capture());
+
+        String kafkaMessage = messageCaptor.getValue();
+        Map<String, Object> payload = objectMapper.readValue(kafkaMessage, Map.class);
+
+        assertEquals(testEventId.toString(), payload.get("eventId"));
+        assertEquals("PUBLISHED", payload.get("status"));
     }
 
     @Test
@@ -204,16 +241,6 @@ class EventServiceTest {
 
         assertEquals(1, result.size());
         verify(eventRepository).findPastEvents(any(LocalDateTime.class));
-    }
-
-    @Test
-    void testPublishEvent() {
-        when(eventRepository.findById(testEventId)).thenReturn(Optional.of(testEvent));
-        when(eventRepository.save(any(Event.class))).thenReturn(testEvent);
-
-        eventService.publishEvent(testEventId);
-
-        verify(kafkaProducer).sendMessage(eq("event-published"), contains("Event published"));
     }
 
     @Test
