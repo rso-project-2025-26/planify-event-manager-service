@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "events")
@@ -17,8 +18,8 @@ import java.time.LocalDateTime;
 public class Event {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
     
     @Column(nullable = false)
     private String title;
@@ -34,13 +35,23 @@ public class Event {
     
     // Location reference
     @Column(name = "location_id")
-    private Long locationId;
+    private UUID locationId;
     
     @Column(name = "location_name", length = 500)
     private String locationName;
-    
+
+    // Booking linkage (booking-service)
+    @Column(name = "booking_id")
+    private UUID bookingId;
+
+    @Column(name = "booking_status", length = 50)
+    private String bookingStatus;
+
+    @Column(name = "organization_id", nullable = false)
+    private UUID organizationId;
+
     @Column(name = "organizer_id", nullable = false)
-    private Long organizerId;
+    private UUID organizerId;
     
     @Column(name = "max_attendees")
     private Integer maxAttendees;

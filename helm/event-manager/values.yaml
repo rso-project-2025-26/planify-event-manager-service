@@ -1,0 +1,68 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/rso-project-2025-26/planify-event-manager-service
+  tag: main
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: ghcr-secret
+
+service:
+  type: ClusterIP
+  port: 8081
+  targetPort: 8081
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 250m
+    memory: 512Mi
+
+probes:
+  liveness:
+    path: /actuator/health
+    initialDelaySeconds: 150
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    path: /actuator/health
+    initialDelaySeconds: 100
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+config:
+  springProfilesActive: prod
+  database:
+    url: "jdbc:postgresql://postgres-service:5432/planify"
+    username: "planify"
+  kafka:
+    bootstrapServers: "kafka-service:9092"
+    topicEventAttendanceAccepted: "event-attendance-accepted"
+  oauth2:
+    issuerUri: "https://4.185.235.181.nip.io/keycloak/realms/planify"
+    jwkSetUri: "http://keycloak-service:8080/keycloak/realms/planify/protocol/openid-connect/certs"
+  booking:
+    grpcHost: "booking-service"
+    grpcPort: "9095"
+  userService:
+    baseUrl: "http://user-service:8082"
+  
+  jpa:
+    showSql: "false"
+  management:
+    endpointsInclude: "health,prometheus,info,metrics"
+  logging:
+    levelApp: "INFO"
+    levelSpringWeb: "WARN"
+
+  swagger:
+    enabled: "false"
+
+secrets:
+  postgresSecretName: postgres-secret
+  postgresPasswordKey: POSTGRES_PASSWORD

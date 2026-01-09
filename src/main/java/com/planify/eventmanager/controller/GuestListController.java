@@ -1,149 +1,131 @@
 package com.planify.eventmanager.controller;
 
 import com.planify.eventmanager.model.GuestList;
+import com.planify.eventmanager.service.EventService;
 import com.planify.eventmanager.service.GuestListService;
+import com.planify.eventmanager.service.SecurityService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/guests")
+@RequestMapping("/api/events/{eventId}/guests")
 @RequiredArgsConstructor
-@Tag(name = "Guest List", description = "Guest list and RSVP management")
+@Slf4j
+@Tag(name = "Guest List", description = "Guest list management endpoints for event organizers")
+@SecurityRequirement(name = "bearer-jwt")
 public class GuestListController {
-    
+
     private final GuestListService guestListService;
-    
-    // Guest Management
-    @GetMapping("/event/{eventId}")
-    @Operation(summary = "Get all guests for an event")
-    public ResponseEntity<List<GuestList>> getAllGuestsForEvent(@PathVariable Long eventId) {
+    private final EventService eventService;
+    private final SecurityService securityService;
+
+    @GetMapping
+    @Operation(
+        summary = "Get all guests for event",
+        description = "Returns complete guest list for an event including RSVP status and attendance information. Organizer view."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved guest list",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = GuestList.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing JWT token", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Forbidden - Insufficient permissions", content = @Content)
+    })
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'ORGANISER')")
+    public ResponseEntity<List<GuestList>> getAllGuestsForEvent(
+            @Parameter(required = true)
+            @PathVariable UUID eventId) {
+        if (!securityService.hasAnyRoleInOrganization(eventService.getEventById(eventId).getOrganizationId(), List.of("ORG_ADMIN", "ORGANISER"))) {
+            log.error("User is not authorized to delete events in this organization.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(guestListService.getAllGuestsForEvent(eventId));
     }
-    
-    @GetMapping("/user/{userId}")
-    @Operation(summary = "Get all events for a user")
-    public ResponseEntity<List<GuestList>> getAllEventsForUser(@PathVariable Long userId) {
-        return ResponseEntity.ok(guestListService.getAllEventsForUser(userId));
-    }
-    
-    @GetMapping("/event/{eventId}/user/{userId}")
-    @Operation(summary = "Get specific guest entry")
+
+    @GetMapping("/{userId}")
+    @Operation(
+        summary = "Get specific guest entry",
+        description = "Returns detailed guest information for a specific user in the event, including invitation status and RSVP response."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved guest entry",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = GuestList.class))),
+        @ApiResponse(responseCode = "400", description = "Bad request", content = @Content),
+    })
     public ResponseEntity<GuestList> getGuestEntry(
-            @PathVariable Long eventId, 
-            @PathVariable Long userId) {
+            @Parameter(required = true)
+            @PathVariable UUID eventId,
+            @Parameter(required = true)
+            @PathVariable UUID userId
+    ) {
         return ResponseEntity.ok(guestListService.getGuestEntry(eventId, userId));
     }
-    
+
     @PostMapping("/invite")
-    @Operation(summary = "Invite guest to event")
+    @Operation(
+        summary = "Invite guest to event",
+        description = "Organizer invites a user to the event. Publishes 'guest-invited' Kafka event which triggers invitation notification via notification service."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Guest successfully invited",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = GuestList.class))),
+        @ApiResponse(responseCode = "400", description = "Bad request - Invalid data or user already invited", content = @Content),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing JWT token", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Forbidden - Insufficient permissions", content = @Content)
+    })
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'ORGANISER')")
     public ResponseEntity<GuestList> inviteGuest(
-            @RequestParam Long eventId,
-            @RequestParam Long userId,
-            @RequestParam(required = false) GuestList.GuestRole role,
-            @RequestParam(required = false) String notes) {
+            @Parameter(required = true)
+            @PathVariable UUID eventId,
+            @Parameter(required = true)
+            @RequestParam UUID userId,
+            @Parameter(required = true)
+            @RequestParam UUID organizationId
+    ) {
+        if (!securityService.hasAnyRoleInOrganization(eventService.getEventById(eventId).getOrganizationId(), List.of("ORG_ADMIN", "ORGANISER"))) {
+            log.error("User is not authorized to delete events in this organization.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(guestListService.inviteGuest(eventId, userId, role, notes));
+                .body(guestListService.inviteGuest(eventId, userId, organizationId));
     }
-    
-    @DeleteMapping("/event/{eventId}/user/{userId}")
-    @Operation(summary = "Remove guest from event")
+
+    @DeleteMapping("/{userId}")
+    @Operation(
+        summary = "Remove guest from event",
+        description = "Organizer removes a guest from the event invitation list. Publishes 'guest-removed' Kafka event for tracking purposes."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Guest successfully removed", content = @Content),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing JWT token", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Forbidden - Insufficient permissions", content = @Content)
+    })
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'ORGANISER')")
     public ResponseEntity<Void> removeGuest(
-            @PathVariable Long eventId, 
-            @PathVariable Long userId) {
+            @Parameter(required = true)
+            @PathVariable UUID eventId,
+            @Parameter(required = true)
+            @PathVariable UUID userId
+    ) {
+        if (!securityService.hasAnyRoleInOrganization(eventService.getEventById(eventId).getOrganizationId(), List.of("ORG_ADMIN", "ORGANISER"))) {
+            log.error("User is not authorized to delete events in this organization.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         guestListService.removeGuest(eventId, userId);
         return ResponseEntity.noContent().build();
-    }
-    
-    // RSVP Management    
-    @PutMapping("/event/{eventId}/user/{userId}/rsvp")
-    @Operation(summary = "Update RSVP status")
-    public ResponseEntity<GuestList> updateRsvp(
-            @PathVariable Long eventId,
-            @PathVariable Long userId,
-            @RequestParam GuestList.RsvpStatus status) {
-        return ResponseEntity.ok(guestListService.updateRsvp(eventId, userId, status));
-    }
-    
-    @PutMapping("/event/{eventId}/user/{userId}/accept")
-    @Operation(summary = "Accept invitation")
-    public ResponseEntity<GuestList> acceptInvitation(
-            @PathVariable Long eventId,
-            @PathVariable Long userId) {
-        return ResponseEntity.ok(guestListService.acceptInvitation(eventId, userId));
-    }
-    
-    @PutMapping("/event/{eventId}/user/{userId}/decline")
-    @Operation(summary = "Decline invitation")
-    public ResponseEntity<GuestList> declineInvitation(
-            @PathVariable Long eventId,
-            @PathVariable Long userId) {
-        return ResponseEntity.ok(guestListService.declineInvitation(eventId, userId));
-    }
-    
-    // Check-in Management    
-    @PutMapping("/event/{eventId}/user/{userId}/check-in")
-    @Operation(summary = "Check in guest")
-    public ResponseEntity<GuestList> checkInGuest(
-            @PathVariable Long eventId,
-            @PathVariable Long userId) {
-        return ResponseEntity.ok(guestListService.checkInGuest(eventId, userId));
-    }
-    
-    @GetMapping("/event/{eventId}/checked-in")
-    @Operation(summary = "Get checked-in guests")
-    public ResponseEntity<List<GuestList>> getCheckedInGuests(@PathVariable Long eventId) {
-        return ResponseEntity.ok(guestListService.getCheckedInGuests(eventId));
-    }
-    
-    @GetMapping("/event/{eventId}/checked-in/count")
-    @Operation(summary = "Count checked-in guests")
-    public ResponseEntity<Long> countCheckedInGuests(@PathVariable Long eventId) {
-        return ResponseEntity.ok(guestListService.countCheckedInGuests(eventId));
-    }
-    
-    // Query Operations    
-    @GetMapping("/event/{eventId}/status/{status}")
-    @Operation(summary = "Get guests by RSVP status")
-    public ResponseEntity<List<GuestList>> getGuestsByStatus(
-            @PathVariable Long eventId,
-            @PathVariable GuestList.RsvpStatus status) {
-        return ResponseEntity.ok(guestListService.getGuestsByStatus(eventId, status));
-    }
-    
-    @GetMapping("/event/{eventId}/role/{role}")
-    @Operation(summary = "Get guests by role")
-    public ResponseEntity<List<GuestList>> getGuestsByRole(
-            @PathVariable Long eventId,
-            @PathVariable GuestList.GuestRole role) {
-        return ResponseEntity.ok(guestListService.getGuestsByRole(eventId, role));
-    }
-    
-    @GetMapping("/event/{eventId}/user/{userId}/invited")
-    @Operation(summary = "Check if user is invited")
-    public ResponseEntity<Boolean> isUserInvited(
-            @PathVariable Long eventId,
-            @PathVariable Long userId) {
-        return ResponseEntity.ok(guestListService.isUserInvited(eventId, userId));
-    }
-    
-    // Statistics
-    @GetMapping("/event/{eventId}/count")
-    @Operation(summary = "Count total guests")
-    public ResponseEntity<Long> countTotalGuests(@PathVariable Long eventId) {
-        return ResponseEntity.ok(guestListService.countTotalGuests(eventId));
-    }
-    
-    @GetMapping("/event/{eventId}/status/{status}/count")
-    @Operation(summary = "Count guests by status")
-    public ResponseEntity<Long> countGuestsByStatus(
-            @PathVariable Long eventId,
-            @PathVariable GuestList.RsvpStatus status) {
-        return ResponseEntity.ok(guestListService.countGuestsByStatus(eventId, status));
     }
 }

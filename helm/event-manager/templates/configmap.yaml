@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: event-manager-config
+data:
+  SPRING_DATASOURCE_URL: {{ .Values.config.database.url | quote }}
+  SPRING_DATASOURCE_USERNAME: {{ .Values.config.database.username | quote }}
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: {{ .Values.config.kafka.bootstrapServers | quote }}
+  OAUTH2_ISSUER_URI: {{ .Values.config.oauth2.issuerUri | quote }}
+  OAUTH2_JWK_SET_URI: {{ .Values.config.oauth2.jwkSetUri | quote }}
+  BOOKING_GRPC_HOST: {{ .Values.config.booking.grpcHost | quote }}
+  BOOKING_GRPC_PORT: {{ .Values.config.booking.grpcPort | quote }}
+  USER_SERVICE_BASE_URL: {{ .Values.config.userService.baseUrl | quote }}
+  JPA_SHOW_SQL: {{ .Values.config.jpa.showSql | quote }}
+  MANAGEMENT_ENDPOINTS_INCLUDE: {{ .Values.config.management.endpointsInclude | quote }}
+  SWAGGER_ENABLED: {{ .Values.config.swagger.enabled | quote }}
+  LOG_LEVEL_APP: {{ .Values.config.logging.levelApp | quote }}
+  LOG_LEVEL_SPRING_WEB: {{ .Values.config.logging.levelSpringWeb | quote }}

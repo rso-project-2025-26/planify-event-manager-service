@@ -1,16 +1,25 @@
 package com.planify.eventmanager.service;
 
+import com.planify.booking_service.grpc.CancelBookingResponse;
+import com.planify.eventmanager.booking.BookingClient;
+import com.planify.booking_service.grpc.CheckAvailabilityResponse;
+import com.planify.booking_service.grpc.CreateBookingResponse;
 import com.planify.eventmanager.event.KafkaProducer;
 import com.planify.eventmanager.model.Event;
 import com.planify.eventmanager.repository.EventRepository;
-import com.planify.eventmanager.repository.GuestListRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.UUID;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -18,15 +27,15 @@ import java.util.List;
 public class EventService {
     
     private final EventRepository eventRepository;
-    private final GuestListRepository guestListRepository;
     private final KafkaProducer kafkaProducer;
-    
+    private final BookingClient bookingClient;
+
     // CRUD Operations    
     public List<Event> getAllEvents() {
         return eventRepository.findAll();
     }
     
-    public Event getEventById(Long id) {
+    public Event getEventById(UUID id) {
         return eventRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Event not found with id: " + id));
     }
@@ -36,15 +45,28 @@ public class EventService {
         Event savedEvent = eventRepository.save(event);
         
         // Publish event to Kafka
-        kafkaProducer.sendMessage("event-created", 
-            String.format("Event created: %s (ID: %d)", savedEvent.getTitle(), savedEvent.getId()));
+        try {
+            Map<String, Object> payload = Map.of(
+                "eventId", savedEvent.getId().toString(),
+                "organizationId", savedEvent.getOrganizationId().toString(),
+                "title", savedEvent.getTitle(),
+                "eventDate", savedEvent.getEventDate().toString(),
+                "status", savedEvent.getStatus() != null ? savedEvent.getStatus() : "DRAFT"
+            );
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-created", message);
+            log.info("Published event-created to Kafka: {}", savedEvent.getTitle());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-created payload: {}", e.getMessage(), e);
+        }
         
         log.info("Created new event: {}", savedEvent.getId());
         return savedEvent;
     }
     
     @Transactional
-    public Event updateEvent(Long id, Event eventDetails) {
+    public Event updateEvent(UUID id, Event eventDetails) {
         Event event = getEventById(id);
         
         event.setTitle(eventDetails.getTitle());
@@ -60,28 +82,62 @@ public class EventService {
         Event updatedEvent = eventRepository.save(event);
         
         // Publish update event to Kafka
-        kafkaProducer.sendMessage("event-updated", 
-            String.format("Event updated: %s (ID: %d)", updatedEvent.getTitle(), updatedEvent.getId()));
+        try {
+            Map<String, Object> payload = Map.of(
+                "eventId", updatedEvent.getId().toString(),
+                "organizationId", updatedEvent.getOrganizationId().toString(),
+                "title", updatedEvent.getTitle(),
+                "eventDate", updatedEvent.getEventDate().toString(),
+                "status", updatedEvent.getStatus() != null ? updatedEvent.getStatus() : "DRAFT"
+            );
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-updated", message);
+            log.info("Published event-updated to Kafka: {}", updatedEvent.getTitle());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-updated payload: {}", e.getMessage(), e);
+        }
         
         log.info("Updated event: {}", updatedEvent.getId());
         return updatedEvent;
     }
     
     @Transactional
-    public void deleteEvent(Long id) {
+    public void deleteEvent(UUID id) {
         Event event = getEventById(id);
+
+        if (event.getBookingId() != null) {
+            try {
+                log.info("Canceling booking {} for event {}", event.getBookingId(), id);
+                var cancel = bookingClient.cancelBooking(event.getBookingId());
+                event.setBookingStatus(cancel.getStatus());
+            } catch (Exception ex) {
+                log.error("Failed to cancel booking {} for event {}: {}", event.getBookingId(), id, ex.getMessage());
+            }
+        }
+
         eventRepository.delete(event);
         
         // Publish delete event to Kafka
-        kafkaProducer.sendMessage("event-deleted", 
-            String.format("Event deleted: ID %d", id));
+        Map<String, Object> payload = Map.of(
+            "eventId", id.toString(),
+            "deletedAt", LocalDateTime.now().toString()
+        );
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-deleted", message);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-deleted payload for event {}: {}", id, e.getMessage(), e);
+        }
         
         log.info("Deleted event: {}", id);
     }
     
     // Query Operations    
-    public List<Event> getEventsByOrganizer(Long organizerId) {
-        return eventRepository.findByOrganizerId(organizerId);
+    public List<Event> getEventsByOrganization(UUID organizationId) {
+        return eventRepository.findByOrganizationId(organizationId);
     }
     
     public List<Event> getEventsByStatus(Event.EventStatus status) {
@@ -104,65 +160,118 @@ public class EventService {
         return eventRepository.findByEventDateBetween(start, end);
     }
     
-    public List<Event> getEventsByLocation(Long locationId) {
+    public List<Event> getEventsByLocation(UUID locationId) {
         return eventRepository.findByLocationId(locationId);
     }
     
-    // Status Management    
+    // Reservira lokacijo
     @Transactional
-    public Event publishEvent(Long id) {
+    public void reserveLocation(UUID id) {
+        Event event = getEventById(id);
+
+        if (event.getBookingId() != null) {
+            log.info("Canceling existing booking for event {}", id);
+            CancelBookingResponse cancel = bookingClient.cancelBooking(event.getBookingId());
+        }
+
+        if (event.getLocationId() != null && event.getEventDate() != null && event.getEndDate() != null) {
+            long startMs = event.getEventDate().atOffset(ZoneOffset.UTC).toInstant().toEpochMilli();
+            long endMs = event.getEndDate().atOffset(ZoneOffset.UTC).toInstant().toEpochMilli();
+
+            CheckAvailabilityResponse availability = bookingClient.checkAvailability(
+                    event.getLocationId(), startMs, endMs);
+            if (!availability.getAvailable()) {
+                log.warn("Location is not available for the selected time interval");
+                throw new org.springframework.web.server.ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Location is not available for the selected time interval");
+            }
+
+            CreateBookingResponse create = bookingClient.createBooking(
+                    event.getLocationId(),
+                    event.getId(),
+                    event.getOrganizationId().toString(),
+                    startMs,
+                    endMs,
+                    "EUR",
+                    null
+            );
+
+            event.setBookingId(UUID.fromString(create.getBookingId()));
+            event.setBookingStatus(create.getStatus());
+
+            eventRepository.save(event);
+            log.info("Created booking for event {}", id);
+        }
+    }
+
+    @Transactional
+    public Event publishEvent(UUID id) {
         Event event = getEventById(id);
         event.setStatus(Event.EventStatus.PUBLISHED);
         Event published = eventRepository.save(event);
         
-        kafkaProducer.sendMessage("event-published", 
-            String.format("Event published: %s (ID: %d)", published.getTitle(), published.getId()));
+        try {
+            Map<String, Object> payload = Map.of(
+                "eventId", published.getId().toString(),
+                "status", "PUBLISHED"
+            );
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-published", message);
+            log.info("Published event-published to Kafka: {}", published.getTitle());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-published payload: {}", e.getMessage(), e);
+        }
         
         log.info("Published event: {}", id);
         return published;
     }
     
     @Transactional
-    public Event cancelEvent(Long id) {
+    public Event cancelEvent(UUID id) {
         Event event = getEventById(id);
+
+        // If there is a booking, cancel it first
+        if (event.getBookingId() != null) {
+            try {
+                log.info("Canceling booking {} for event {}", event.getBookingId(), id);
+                var cancel = bookingClient.cancelBooking(event.getBookingId());
+                event.setBookingStatus(cancel.getStatus());
+            } catch (Exception ex) {
+                log.error("Failed to cancel booking {} for event {}: {}", event.getBookingId(), id, ex.getMessage());
+                // proceed with event cancel to avoid blocking organizer
+            }
+        }
+
         event.setStatus(Event.EventStatus.CANCELLED);
         Event cancelled = eventRepository.save(event);
         
-        kafkaProducer.sendMessage("event-cancelled", 
-            String.format("Event cancelled: %s (ID: %d)", cancelled.getTitle(), cancelled.getId()));
+        // Publish cancel event to Kafka
+        Map<String, Object> payload = Map.of(
+            "eventId", id.toString(),
+            "cancelledAt", LocalDateTime.now().toString()
+        );
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-cancelled", message);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-cancelled payload for event {}: {}", id, e.getMessage(), e);
+        }
         
         log.info("Cancelled event: {}", id);
         return cancelled;
     }
     
     @Transactional
-    public Event completeEvent(Long id) {
+    public Event completeEvent(UUID id) {
         Event event = getEventById(id);
         event.setStatus(Event.EventStatus.COMPLETED);
         Event completed = eventRepository.save(event);
         
         log.info("Completed event: {}", id);
         return completed;
-    }
-    
-    // Attendee Count Management    
-    @Transactional
-    public Event updateAttendeeCount(Long id) {
-        Event event = getEventById(id);
-        Long acceptedCount = guestListRepository.countByEventIdAndRsvpStatus(id, 
-            com.planify.eventmanager.model.GuestList.RsvpStatus.ACCEPTED);
-        event.setCurrentAttendees(acceptedCount.intValue());
-        return eventRepository.save(event);
-    }
-    
-    public boolean isEventFull(Long id) {
-        Event event = getEventById(id);
-        if (event.getMaxAttendees() == null) return false;
-        return event.getCurrentAttendees() >= event.getMaxAttendees();
-    }
-    
-    // Statistics    
-    public Long countEventsByOrganizer(Long organizerId) {
-        return eventRepository.countByOrganizerId(organizerId);
     }
 }
