@@ -45,8 +45,21 @@ public class EventService {
         Event savedEvent = eventRepository.save(event);
         
         // Publish event to Kafka
-        kafkaProducer.sendMessage("event-created", 
-            String.format("Event created: %s (ID: %s)", savedEvent.getTitle(), savedEvent.getId()));
+        try {
+            Map<String, Object> payload = Map.of(
+                "eventId", savedEvent.getId().toString(),
+                "organizationId", savedEvent.getOrganizationId().toString(),
+                "title", savedEvent.getTitle(),
+                "eventDate", savedEvent.getEventDate().toString(),
+                "status", savedEvent.getStatus() != null ? savedEvent.getStatus() : "DRAFT"
+            );
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-created", message);
+            log.info("Published event-created to Kafka: {}", savedEvent.getTitle());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-created payload: {}", e.getMessage(), e);
+        }
         
         log.info("Created new event: {}", savedEvent.getId());
         return savedEvent;
@@ -69,8 +82,21 @@ public class EventService {
         Event updatedEvent = eventRepository.save(event);
         
         // Publish update event to Kafka
-        kafkaProducer.sendMessage("event-updated", 
-            String.format("Event updated: %s (ID: %s)", updatedEvent.getTitle(), updatedEvent.getId()));
+        try {
+            Map<String, Object> payload = Map.of(
+                "eventId", updatedEvent.getId().toString(),
+                "organizationId", updatedEvent.getOrganizationId().toString(),
+                "title", updatedEvent.getTitle(),
+                "eventDate", updatedEvent.getEventDate().toString(),
+                "status", updatedEvent.getStatus() != null ? updatedEvent.getStatus() : "DRAFT"
+            );
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-updated", message);
+            log.info("Published event-updated to Kafka: {}", updatedEvent.getTitle());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-updated payload: {}", e.getMessage(), e);
+        }
         
         log.info("Updated event: {}", updatedEvent.getId());
         return updatedEvent;
@@ -185,8 +211,18 @@ public class EventService {
         event.setStatus(Event.EventStatus.PUBLISHED);
         Event published = eventRepository.save(event);
         
-        kafkaProducer.sendMessage("event-published", 
-            String.format("Event published: %s (ID: %s)", published.getTitle(), published.getId()));
+        try {
+            Map<String, Object> payload = Map.of(
+                "eventId", published.getId().toString(),
+                "status", "PUBLISHED"
+            );
+            ObjectMapper mapper = new ObjectMapper();
+            String message = mapper.writeValueAsString(payload);
+            kafkaProducer.sendMessage("event-published", message);
+            log.info("Published event-published to Kafka: {}", published.getTitle());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize event-published payload: {}", e.getMessage(), e);
+        }
         
         log.info("Published event: {}", id);
         return published;
